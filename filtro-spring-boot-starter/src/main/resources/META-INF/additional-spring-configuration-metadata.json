@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "filtro.controller-packages",
+      "type": "java.lang.String[]",
+      "description": "Controller 类扫描路径，支持包名数组",
+      "defaultValue": []
+    }
+  ]
+}
