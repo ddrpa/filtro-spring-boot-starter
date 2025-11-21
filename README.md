@@ -1,17 +1,18 @@
 # Filtro Spring Boot Starter
 
-基于 RSQL（RESTful Service Query Language）的查询过滤框架，为 Spring Boot 应用提供声明式的查询参数解析功能。
+基于 RSQL（RESTful Service Query Language）的查询过滤与元数据框架，为 Spring Boot 应用提供声明式的查询参数解析功能。
 
 ## 场景
 
-该项目最初旨在为某资产管理系统增强检索功能，使得用户在添加自定义属性后，能立即使用该属性进行资产检索。
+该项目最初旨在为某资产管理系统增强检索功能，使得用户在添加自定义属性后，能立即在界面上感知到，并能够使用该属性进行资产检索。
 
 ## 特性
 
 - 通过注解声明可用于过滤的字段与适用方法
-- 自动解析和验证 RSQL 查询字符串，支持生成 MyBatis Plus QueryWrapper 和 JPA/MongoDB Criteria（测试中），支持注入其他扩展
+- 自动注册元数据接口
+- 解析和验证 RSQL 查询字符串，生成 MyBatis Plus QueryWrapper 和 JPA/MongoDB Criteria（测试中），支持注入其他自定义扩展
 - 基于 Java 类型系统，没有额外引入注入风险
-- 类似 Jakarta Bean Validation 的分组概念，支持不同场景下的字段过滤
+- 类似 Jakarta Bean Validation 的分组概念，支持不同场景下的查询方案
 
 ## 快速开始
 
@@ -62,9 +63,15 @@ public class BookController {
     // ...
 ```
 
-6. 通过 HTTP 请求传递 RSQL 查询字符串
+6. 通过 HTTP 请求获取查询支持情况并动态构建交互界面（可选）
 
+```http
+GET /api/book:filtro
 ```
+
+7. 通过 HTTP 请求传递 RSQL 查询字符串
+
+```http
 GET /api/book?q=title=contains=java,(title=contains=python;price<40)
 ```
 
