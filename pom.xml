@@ -49,7 +49,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <spring-boot.version>3.5.4</spring-boot.version>
-        <commons-lang3.version>3.18.0</commons-lang3.version>
+        <commons-lang3.version>3.20.0</commons-lang3.version>
         <reflections.version>0.10.2</reflections.version>
         <rsql-parser.version>2.1.0</rsql-parser.version>
         <bson.version>5.5.1</bson.version>
