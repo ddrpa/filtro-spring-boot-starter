@@ -52,7 +52,7 @@
         <commons-lang3.version>3.18.0</commons-lang3.version>
         <reflections.version>0.10.2</reflections.version>
         <rsql-parser.version>2.1.0</rsql-parser.version>
-        <bson.version>5.5.1</bson.version>
+        <bson.version>5.6.1</bson.version>
     </properties>
 
     <dependencyManagement>
