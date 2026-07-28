@@ -13,9 +13,22 @@ import java.util.stream.Collectors;
 public class FiltroRegistry {
 
     private final ConcurrentMap<Class<?>, List<FiltroFieldMeta>> metadataStore = new ConcurrentHashMap<>();
+    private int maxDepth = 20;
 
     public boolean hasType(Class<?> clazz) {
         return metadataStore.containsKey(clazz);
+    }
+
+    public int registeredTypeCount() {
+        return metadataStore.size();
+    }
+
+    public int getMaxDepth() {
+        return maxDepth;
+    }
+
+    public void setMaxDepth(int maxDepth) {
+        this.maxDepth = maxDepth;
     }
 
     public void register(Class<?> criteriaType, List<FiltroFieldMeta> filtroFieldMetas) {

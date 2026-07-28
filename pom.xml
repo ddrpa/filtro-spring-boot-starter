@@ -5,7 +5,7 @@
 
     <groupId>cc.ddrpa.filtro</groupId>
     <artifactId>filtro-parent</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.2-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>${project.groupId}:${project.artifactId}</name>
 
@@ -50,7 +50,7 @@
 
         <spring-boot.version>3.5.4</spring-boot.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
-        <reflections.version>0.10.2</reflections.version>
+        <classgraph.version>4.8.179</classgraph.version>
         <rsql-parser.version>2.1.0</rsql-parser.version>
         <bson.version>5.5.1</bson.version>
     </properties>
@@ -70,9 +70,9 @@
                 <version>${commons-lang3.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.reflections</groupId>
-                <artifactId>reflections</artifactId>
-                <version>${reflections.version}</version>
+                <groupId>io.github.classgraph</groupId>
+                <artifactId>classgraph</artifactId>
+                <version>${classgraph.version}</version>
             </dependency>
             <dependency>
                 <groupId>cz.jirutka.rsql</groupId>

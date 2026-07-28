@@ -6,7 +6,7 @@
     <parent>
         <groupId>cc.ddrpa.filtro</groupId>
         <artifactId>filtro-parent</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.0.2-SNAPSHOT</version>
     </parent>
 
     <artifactId>filtro-core</artifactId>
@@ -23,16 +23,13 @@
             <artifactId>commons-lang3</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.reflections</groupId>
-            <artifactId>reflections</artifactId>
-        </dependency>
-        <dependency>
             <groupId>cz.jirutka.rsql</groupId>
             <artifactId>rsql-parser</artifactId>
         </dependency>
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>bson</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 

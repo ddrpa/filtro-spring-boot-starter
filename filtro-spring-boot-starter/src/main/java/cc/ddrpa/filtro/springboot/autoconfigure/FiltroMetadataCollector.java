@@ -8,10 +8,12 @@ import cc.ddrpa.filtro.core.field.FiltroFieldMetaBuilder;
 import cc.ddrpa.filtro.springboot.FiltroFieldMetaVO;
 import cc.ddrpa.filtro.springboot.properties.FiltroProperties;
 import jakarta.servlet.http.HttpServletRequest;
+import io.github.classgraph.ClassGraph;
+import io.github.classgraph.ScanResult;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.reflections.Reflections;
-import org.reflections.util.ConfigurationBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -30,9 +32,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
-import static org.reflections.scanners.Scanners.TypesAnnotated;
-
 public class FiltroMetadataCollector implements SmartInitializingSingleton {
+    private static final Logger logger = LoggerFactory.getLogger(FiltroMetadataCollector.class);
+
     private final FiltroProperties filtroProperties;
     private final FiltroRegistry filtroRegistry;
     private final RequestMappingInfoHandlerMapping requestMappingInfoHandlerMapping;
@@ -50,16 +52,25 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
 
     @Override
     public void afterSingletonsInstantiated() {
-        Reflections reflections = new Reflections(new ConfigurationBuilder().forPackages(filtroProperties.getControllerPackages()));
-        // 只扫描带 @RestController 或 @Controller 注解的类
-        Set<Class<?>> restControllerClassSet = reflections.get(TypesAnnotated.with(RestController.class).asClass());
-        for (Class<?> controllerClazz : restControllerClassSet) {
-            processControllerClass(controllerClazz);
+        String[] packages = filtroProperties.getControllerPackages();
+        if (packages.length == 0) {
+            logger.info("No controller packages configured for Filtro scanning; skipping metadata collection");
+            return;
         }
-        Set<Class<?>> controllerClassSet = reflections.get(TypesAnnotated.with(Controller.class).asClass());
-        for (Class<?> controllerClazz : controllerClassSet) {
-            processControllerClass(controllerClazz);
+        logger.info("Filtro scanning controllers in packages: {}", (Object) packages);
+        try (ScanResult scanResult = new ClassGraph()
+                .enableAnnotationInfo()
+                .acceptPackages(packages)
+                .scan()) {
+            for (Class<?> controllerClazz : scanResult.getClassesWithAnnotation(RestController.class.getName()).loadClasses()) {
+                processControllerClass(controllerClazz);
+            }
+            for (Class<?> controllerClazz : scanResult.getClassesWithAnnotation(Controller.class.getName()).loadClasses()) {
+                processControllerClass(controllerClazz);
+            }
         }
+        logger.info("Filtro scanning complete — {} entity types registered, {} metadata endpoints",
+                filtroRegistry.registeredTypeCount(), metadataEndpoint2TypeAndGroup.size());
     }
 
     /**
@@ -98,15 +109,20 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
         RequestMappingInfo originalMappingInfo = optionalEntry.get().getKey();
 
         // 取第一个 pattern（如果有多个 pattern，可以循环注册多个 meta path）
-        Set<String> patterns = originalMappingInfo.getPathPatternsCondition()
-                .getPatterns()
-                .stream()
-                .map(PathPattern::getPatternString)
-                .collect(Collectors.toSet());
+        Set<String> patterns;
+        if (originalMappingInfo.getPathPatternsCondition() != null) {
+            patterns = originalMappingInfo.getPathPatternsCondition()
+                    .getPatterns()
+                    .stream()
+                    .map(PathPattern::getPatternString)
+                    .collect(Collectors.toSet());
+        } else {
+            patterns = originalMappingInfo.getDirectPaths();
+        }
         String originalPattern = patterns.isEmpty() ? ("/" + targetMethod.getName()) : patterns.iterator().next();
 
         // 构造 metadata endpoint 路径
-        String expectedMatadataEndpointPath = originalPattern + ":filtro";
+        String expectedMatadataEndpointPath = originalPattern + filtroProperties.getMetadataEndpointSuffix();
         expectedMatadataEndpointPath = expectedMatadataEndpointPath.replaceAll("//+", "/");
 
         // 元信息 handler bean（我们用 MetadataController.meta 方法）
@@ -158,15 +174,17 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
             Filtro filtroAnno = parameter.getAnnotation(Filtro.class);
             Class<?> criteriaType = filtroAnno.value();
             Class<?> metadataGroup = filtroAnno.group();
-            // 获取 url 映射，在 endpoint 后面补充添加 ':filtro' 后注册一个新 endpoint
+            // 获取 url 映射，在 endpoint 后面补充添加后缀后注册一个新 endpoint
             // 访问该地址返回构造 schema
-            try {
-                Optional<String> metadataEndpoint = registerMetadataEndpoint(method);
-                // NEED_CHECK 记录 mappingName -> criteriaType,metadataGroup 的映射关系
-                metadataEndpoint.ifPresent(s ->
-                        metadataEndpoint2TypeAndGroup.put(s, ImmutablePair.of(criteriaType, metadataGroup)));
-            } catch (NoSuchMethodException e) {
-                // IGNORED
+            if (filtroProperties.isEnableMetadataEndpoint()) {
+                try {
+                    Optional<String> metadataEndpoint = registerMetadataEndpoint(method);
+                    metadataEndpoint.ifPresent(s ->
+                            metadataEndpoint2TypeAndGroup.put(s, ImmutablePair.of(criteriaType, metadataGroup)));
+                } catch (NoSuchMethodException e) {
+                    logger.warn("Failed to register Filtro metadata endpoint for method {}: {}",
+                            method.getName(), e.getMessage());
+                }
             }
             if (filtroRegistry.hasType(criteriaType)) {
                 // 如果已经注册过该 criteriaType，则跳过
@@ -187,6 +205,9 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
                 filtroFieldMetas.add(filtroFieldMeta);
             }
             filtroRegistry.register(criteriaType, filtroFieldMetas);
+            logger.info("Filtro registered entity '{}' with {} filterable fields from controller {}",
+                    criteriaType.getSimpleName(), filtroFieldMetas.size(),
+                    method.getDeclaringClass().getSimpleName());
             // 注册完一个立即退出，无法处理多个 Filtro 注解（只能生成一个 metadata endpoint）
             return;
         }

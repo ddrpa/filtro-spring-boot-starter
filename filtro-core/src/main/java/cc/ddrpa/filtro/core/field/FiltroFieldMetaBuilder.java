@@ -2,7 +2,6 @@ package cc.ddrpa.filtro.core.field;
 
 import cc.ddrpa.filtro.core.annotation.FiltroField;
 import org.apache.commons.lang3.StringUtils;
-import org.bson.types.Decimal128;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -11,43 +10,69 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 字段元数据构建器，根据注解和字段类型自动推断配置信息
+ * 字段元数据构建器，根据注解和字段类型自动推断查询意图与操作符集。
  */
 public class FiltroFieldMetaBuilder {
-    private static final Set<FiltroOperator> INT_FILTRO_OPERATORS = Set.of(
-            FiltroOperator.EQ, FiltroOperator.NEQ,
-            FiltroOperator.GT, FiltroOperator.GTE, FiltroOperator.LT, FiltroOperator.LTE,
-            FiltroOperator.ALT_GT, FiltroOperator.ALT_GTE, FiltroOperator.ALT_LT, FiltroOperator.ALT_LTE,
-            FiltroOperator.IN, FiltroOperator.NOT_IN
-    );
-    private static final Set<FiltroOperator> FLOAT_FILTRO_OPERATORS = Set.of(
-            FiltroOperator.GT, FiltroOperator.LT, FiltroOperator.ALT_GT, FiltroOperator.ALT_LT,
-            FiltroOperator.IN, FiltroOperator.NOT_IN
-    );
-    private static final Set<FiltroOperator> DECIMAL_FILTRO_OPERATORS = Set.of(
-            FiltroOperator.EQ, FiltroOperator.NEQ,
-            FiltroOperator.GT, FiltroOperator.GTE, FiltroOperator.LT, FiltroOperator.LTE,
-            FiltroOperator.ALT_GT, FiltroOperator.ALT_GTE, FiltroOperator.ALT_LT, FiltroOperator.ALT_LTE,
-            FiltroOperator.IN, FiltroOperator.NOT_IN
-    );
-    private static final Set<FiltroOperator> STRING_FILTRO_OPERATORS = Set.of(
-            FiltroOperator.EQ, FiltroOperator.NEQ,
+
+    // ──────────── QueryIntent → 默认操作符集 ────────────
+
+    private static final Set<FiltroOperator> SEARCH_OPERATORS = Set.of(
+            FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
             FiltroOperator.IN, FiltroOperator.NOT_IN,
-            FiltroOperator.PREFIX, FiltroOperator.SUFFIX, FiltroOperator.CONTAINS
+            FiltroOperator.PREFIX, FiltroOperator.SUFFIX, FiltroOperator.CONTAINS,
+            FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL
     );
-    private static final Set<FiltroOperator> DATETIME_FILTRO_OPERATORS = Set.of(
-            FiltroOperator.EQ, FiltroOperator.NEQ,
+
+    private static final Set<FiltroOperator> EXACT_OPERATORS = Set.of(
+            FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
+            FiltroOperator.IN, FiltroOperator.NOT_IN,
+            FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL
+    );
+
+    private static final Set<FiltroOperator> CATEGORY_OPERATORS = Set.of(
+            FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
+            FiltroOperator.IN, FiltroOperator.NOT_IN,
+            FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL
+    );
+
+    private static final Set<FiltroOperator> QUANTITY_OPERATORS = Set.of(
+            FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
             FiltroOperator.GT, FiltroOperator.GTE, FiltroOperator.LT, FiltroOperator.LTE,
             FiltroOperator.ALT_GT, FiltroOperator.ALT_GTE, FiltroOperator.ALT_LT, FiltroOperator.ALT_LTE,
-            FiltroOperator.IN, FiltroOperator.NOT_IN
+            FiltroOperator.IN, FiltroOperator.NOT_IN,
+            FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL
     );
-    private static final Set<FiltroOperator> BOOLEAN_FILTRO_OPERATORS = Set.of(
-            FiltroOperator.EQ, FiltroOperator.NEQ
+
+    private static final Set<FiltroOperator> MEASURE_OPERATORS = Set.of(
+            FiltroOperator.GT, FiltroOperator.LT,
+            FiltroOperator.ALT_GT, FiltroOperator.ALT_LT,
+            FiltroOperator.IN, FiltroOperator.NOT_IN,
+            FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL
     );
-    private static final Set<FiltroOperator> ENUMERATION_FILTRO_OPERATORS = Set.of(
+
+    private static final Set<FiltroOperator> AMOUNT_OPERATORS = Set.of(
+            FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
+            FiltroOperator.GT, FiltroOperator.GTE, FiltroOperator.LT, FiltroOperator.LTE,
+            FiltroOperator.ALT_GT, FiltroOperator.ALT_GTE, FiltroOperator.ALT_LT, FiltroOperator.ALT_LTE,
+            FiltroOperator.IN, FiltroOperator.NOT_IN,
+            FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL
+    );
+
+    private static final Set<FiltroOperator> DATETIME_OPERATORS = Set.of(
+            FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
+            FiltroOperator.GT, FiltroOperator.GTE, FiltroOperator.LT, FiltroOperator.LTE,
+            FiltroOperator.ALT_GT, FiltroOperator.ALT_GTE, FiltroOperator.ALT_LT, FiltroOperator.ALT_LTE,
+            FiltroOperator.IN, FiltroOperator.NOT_IN,
+            FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL
+    );
+
+    private static final Set<FiltroOperator> BOOLEAN_OPERATORS = Set.of(
             FiltroOperator.EQ, FiltroOperator.NEQ,
-            FiltroOperator.IN, FiltroOperator.NOT_IN
+            FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL
     );
+
+    // ──────────── 实例字段 ────────────
+
     private final Field field;
     private final FiltroField filtroFieldAnnotation;
     private Set<FiltroOperator> claimedFiltroOperators = Collections.emptySet();
@@ -57,134 +82,126 @@ public class FiltroFieldMetaBuilder {
         this.filtroFieldAnnotation = filtroFieldAnnotation;
     }
 
+    // ──────────── 类型推断 ────────────
+
     /**
-     * 根据 Java 类型推断 FiltroValueType
+     * 根据 Java 类型推断默认 QueryIntent。
      */
-    private static FiltroValueType inferType(Class<?> clazz) {
+    private static QueryIntent inferIntent(Class<?> clazz) {
         if (Integer.class.equals(clazz) || int.class.equals(clazz)
                 || Long.class.equals(clazz) || long.class.equals(clazz)
                 || Short.class.equals(clazz) || short.class.equals(clazz)) {
-            return FiltroValueType.INT;
+            return QueryIntent.QUANTITY;
         } else if (Float.class.equals(clazz) || float.class.equals(clazz)
                 || Double.class.equals(clazz) || double.class.equals(clazz)) {
-            return FiltroValueType.FLOAT;
-        } else if (BigDecimal.class.equals(clazz) || Decimal128.class.equals(clazz)) {
-            return FiltroValueType.DECIMAL;
+            return QueryIntent.MEASURE;
+        } else if (BigDecimal.class.equals(clazz) || "org.bson.types.Decimal128".equals(clazz.getName())) {
+            return QueryIntent.AMOUNT;
         } else if (Boolean.class.equals(clazz) || boolean.class.equals(clazz)) {
-            return FiltroValueType.BOOLEAN;
+            return QueryIntent.BOOLEAN;
         } else if (java.time.LocalDate.class.equals(clazz) || java.time.LocalDateTime.class.equals(clazz)
                 || java.time.Instant.class.equals(clazz) || java.time.LocalTime.class.equals(clazz)) {
-            return FiltroValueType.DATETIME;
+            return QueryIntent.DATETIME;
         } else if (clazz.isEnum()) {
-            return FiltroValueType.ENUMERATION;
+            return QueryIntent.CATEGORY;
         }
-        return FiltroValueType.STRING;
+        return QueryIntent.SEARCH;
     }
 
+    private static Set<FiltroOperator> operatorsFor(QueryIntent intent) {
+        return switch (intent) {
+            case SEARCH -> SEARCH_OPERATORS;
+            case EXACT -> EXACT_OPERATORS;
+            case CATEGORY -> CATEGORY_OPERATORS;
+            case QUANTITY -> QUANTITY_OPERATORS;
+            case MEASURE -> MEASURE_OPERATORS;
+            case AMOUNT -> AMOUNT_OPERATORS;
+            case DATETIME -> DATETIME_OPERATORS;
+            case BOOLEAN -> BOOLEAN_OPERATORS;
+            default -> throw new IllegalArgumentException("Unknown QueryIntent: " + intent);
+        };
+    }
+
+    // ──────────── 枚举字典 ────────────
+
     /**
-     * 将枚举类转换为字典映射（显示名称 -> 枚举值名称）
-     * 优先使用 getName()、getDescription() 或 getDesc() 方法获取显示名称
+     * 将枚举类转换为字典映射（显示名称 → 枚举值名称）。
      */
     public static Map<String, String> toDict(Class<? extends Enum<?>> enumClass) {
         Map<String, String> result = new LinkedHashMap<>();
-
         try {
             Method getKey = null;
-
-            // 尝试找到可用的方法
             for (Method method : enumClass.getDeclaredMethods()) {
                 String methodName = method.getName();
                 if (method.getParameterCount() == 0
-                        && (
-                        methodName.equals("getName")
-                                || methodName.equals("getDescription")
-                                || methodName.equals("getDesc"))
-                ) {
+                        && (methodName.equals("getName")
+                        || methodName.equals("getDescription")
+                        || methodName.equals("getDesc"))) {
                     getKey = method;
                 }
             }
-
             Object[] constants = enumClass.getEnumConstants();
             for (Object constant : constants) {
-                String key;
-                String value;
-
-                // 优先 description
-                if (Objects.nonNull(getKey)) {
-                    key = String.valueOf(getKey.invoke(constant));
-                } else {
-                    key = ((Enum<?>) constant).name();
-                }
-                value = ((Enum<?>) constant).name();
+                String key = Objects.nonNull(getKey)
+                        ? String.valueOf(getKey.invoke(constant))
+                        : ((Enum<?>) constant).name();
+                String value = ((Enum<?>) constant).name();
                 result.put(key, value);
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to build enum map for " + enumClass, e);
         }
-
         return result;
     }
 
+    // ──────────── 构建 ────────────
+
     /**
-     * 构建字段元数据对象
+     * 构建字段元数据对象。
      */
     public FiltroFieldMeta build() {
         String claimedFieldName = this.filtroFieldAnnotation.field();
         String claimedKeyPath = this.filtroFieldAnnotation.key();
-        FiltroValueType claimedFiltroValueType = this.filtroFieldAnnotation.type();
+        QueryIntent claimedIntent = this.filtroFieldAnnotation.intent();
 
-        FiltroValueType filtroValueType = Objects.isNull(claimedFiltroValueType) || claimedFiltroValueType.equals(FiltroValueType.UNDECIDED) ? inferType(this.field.getType()) : claimedFiltroValueType;
+        QueryIntent queryIntent = (claimedIntent == null || claimedIntent == QueryIntent.AUTO)
+                ? inferIntent(this.field.getType())
+                : claimedIntent;
 
         FiltroFieldMeta filtroFieldMeta = new FiltroFieldMeta();
         filtroFieldMeta.setField(StringUtils.isNotBlank(claimedFieldName) ? claimedFieldName : this.field.getName())
-                .setKey(StringUtils.isNotBlank(claimedKeyPath) ? claimedKeyPath : this.field.getName().replaceAll("([a-z])([A-Z]+)", "$1_$2").toLowerCase())
-                .setFiltroValueType(filtroValueType)
+                .setKey(StringUtils.isNotBlank(claimedKeyPath) ? claimedKeyPath
+                        : this.field.getName().replaceAll("([a-z])([A-Z]+)", "$1_$2").toLowerCase())
+                .setQueryIntent(queryIntent)
                 .setDescription(this.filtroFieldAnnotation.value());
+
         if (this.filtroFieldAnnotation.groups().length < 1) {
             filtroFieldMeta.setGroups(Collections.emptySet());
         } else {
             filtroFieldMeta.setGroups(Arrays.stream(this.filtroFieldAnnotation.groups()).collect(Collectors.toSet()));
         }
 
-        if (Objects.isNull(claimedFiltroOperators) || claimedFiltroOperators.isEmpty()) {
-            switch (filtroValueType) {
-                case INT -> filtroFieldMeta.setSupportedOperations(INT_FILTRO_OPERATORS);
-                case FLOAT -> filtroFieldMeta.setSupportedOperations(FLOAT_FILTRO_OPERATORS);
-                case DECIMAL -> filtroFieldMeta.setSupportedOperations(DECIMAL_FILTRO_OPERATORS);
-                case STRING -> filtroFieldMeta.setSupportedOperations(STRING_FILTRO_OPERATORS);
-                case DATETIME -> filtroFieldMeta.setSupportedOperations(DATETIME_FILTRO_OPERATORS);
-                case BOOLEAN -> filtroFieldMeta.setSupportedOperations(BOOLEAN_FILTRO_OPERATORS);
-                case ENUMERATION -> filtroFieldMeta.setSupportedOperations(ENUMERATION_FILTRO_OPERATORS);
-            }
+        filtroFieldMeta.setMaxInSize(this.filtroFieldAnnotation.maxInSize());
+
+        // intent 提供默认操作符集，operators 做减法
+        Set<FiltroOperator> fullSet = operatorsFor(queryIntent);
+        if (claimedFiltroOperators.isEmpty()) {
+            filtroFieldMeta.setSupportedOperations(fullSet);
         } else {
-            Set<FiltroOperator> supportedFiltroOperators = new HashSet<>(claimedFiltroOperators);
-            switch (filtroValueType) {
-                case INT -> supportedFiltroOperators.retainAll(INT_FILTRO_OPERATORS);
-                case FLOAT -> supportedFiltroOperators.retainAll(FLOAT_FILTRO_OPERATORS);
-                case DECIMAL -> supportedFiltroOperators.retainAll(DECIMAL_FILTRO_OPERATORS);
-                case STRING -> supportedFiltroOperators.retainAll(STRING_FILTRO_OPERATORS);
-                case DATETIME -> supportedFiltroOperators.retainAll(DATETIME_FILTRO_OPERATORS);
-                case BOOLEAN -> supportedFiltroOperators.retainAll(BOOLEAN_FILTRO_OPERATORS);
-                case ENUMERATION -> supportedFiltroOperators.retainAll(ENUMERATION_FILTRO_OPERATORS);
-            }
-            // 自动添加替代比较操作符，需要更好的方法
-            // 自动添加替代比较操作符（如 =gt= 是 > 的替代形式）
-            if (supportedFiltroOperators.contains(FiltroOperator.LT)) {
-                supportedFiltroOperators.add(FiltroOperator.ALT_LT);
-            }
-            if (supportedFiltroOperators.contains(FiltroOperator.LTE)) {
-                supportedFiltroOperators.add(FiltroOperator.ALT_LTE);
-            }
-            if (supportedFiltroOperators.contains(FiltroOperator.GT)) {
-                supportedFiltroOperators.add(FiltroOperator.ALT_GT);
-            }
-            if (supportedFiltroOperators.contains(FiltroOperator.GTE)) {
-                supportedFiltroOperators.add(FiltroOperator.ALT_GTE);
-            }
-            filtroFieldMeta.setSupportedOperations(supportedFiltroOperators);
+            Set<FiltroOperator> selected = new HashSet<>(claimedFiltroOperators);
+            selected.retainAll(fullSet);
+
+            // 自动补 ALT 操作符（如声明了 LT 则自动带上 ALT_LT）
+            if (selected.contains(FiltroOperator.LT)) selected.add(FiltroOperator.ALT_LT);
+            if (selected.contains(FiltroOperator.LTE)) selected.add(FiltroOperator.ALT_LTE);
+            if (selected.contains(FiltroOperator.GT)) selected.add(FiltroOperator.ALT_GT);
+            if (selected.contains(FiltroOperator.GTE)) selected.add(FiltroOperator.ALT_GTE);
+
+            filtroFieldMeta.setSupportedOperations(Collections.unmodifiableSet(selected));
         }
 
-        if (filtroValueType.equals(FiltroValueType.ENUMERATION)) {
+        if (queryIntent == QueryIntent.CATEGORY) {
+            @SuppressWarnings("unchecked")
             Class<? extends Enum<?>> enumClazz = (Class<? extends Enum<?>>) field.getType();
             filtroFieldMeta.setEnumerationClass(enumClazz);
             filtroFieldMeta.setEnumerationDictionary(toDict(enumClazz));
@@ -194,7 +211,7 @@ public class FiltroFieldMetaBuilder {
     }
 
     /**
-     * 设置声明支持的操作符
+     * 设置声明支持的操作符（减法模式）。
      */
     public FiltroFieldMetaBuilder setClaimedOperators(Set<FiltroOperator> claimedFiltroOperators) {
         this.claimedFiltroOperators = claimedFiltroOperators;

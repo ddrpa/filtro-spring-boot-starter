@@ -23,6 +23,7 @@ public enum FiltroOperator {
     /* 自定义扩展的操作符 */
     IS_NULL(false, "=null=", false),
     NOT_NULL(false, "=nonull=", false),
+    NULLABLE_NEQ(false, "=nullable-neq=", false),
 
     // 专门用于字符串的模糊匹配
     PREFIX(false, "=prefix=", false),
@@ -55,6 +56,6 @@ public enum FiltroOperator {
         return Stream.of(FiltroOperator.values())
                 .filter(op -> op.symbol.equalsIgnoreCase(symbol))
                 .findFirst()
-                .orElseThrow(IllegalArgumentException::new);
+                .orElseThrow(() -> new IllegalArgumentException("Unknown RSQL operator: " + symbol));
     }
 }

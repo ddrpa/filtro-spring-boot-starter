@@ -13,8 +13,8 @@ public class FiltroFieldMeta {
     // 数据库 字段名 or key-path
     private String key;
 
-    // 数据类型
-    private FiltroValueType filtroValueType;
+    // 查询意图
+    private QueryIntent queryIntent;
 
     // 支持的操作符
     private Set<FiltroOperator> supportedOperations;
@@ -27,6 +27,11 @@ public class FiltroFieldMeta {
     private Map<String, String> enumerationDictionary;
 
     /**
+     * IN / NOT_IN 参数数量上限，0 表示不限制
+     */
+    private int maxInSize = 0;
+
+    /**
      * 适用分组列表
      */
     private Set<Class<?>> groups;
@@ -35,14 +40,14 @@ public class FiltroFieldMeta {
      * 判断是否为枚举类型
      */
     public boolean isEnumeration() {
-        return FiltroValueType.ENUMERATION.equals(filtroValueType);
+        return QueryIntent.CATEGORY.equals(queryIntent);
     }
 
     public String getField() {
         return field;
     }
 
-    public FiltroFieldMeta setField(String field) {
+    FiltroFieldMeta setField(String field) {
         this.field = field;
         return this;
     }
@@ -51,17 +56,17 @@ public class FiltroFieldMeta {
         return key;
     }
 
-    public FiltroFieldMeta setKey(String key) {
+    FiltroFieldMeta setKey(String key) {
         this.key = key;
         return this;
     }
 
-    public FiltroValueType getFiltroValueType() {
-        return filtroValueType;
+    public QueryIntent getQueryIntent() {
+        return queryIntent;
     }
 
-    public FiltroFieldMeta setFiltroValueType(FiltroValueType filtroValueType) {
-        this.filtroValueType = filtroValueType;
+    FiltroFieldMeta setQueryIntent(QueryIntent queryIntent) {
+        this.queryIntent = queryIntent;
         return this;
     }
 
@@ -69,7 +74,7 @@ public class FiltroFieldMeta {
         return supportedOperations;
     }
 
-    public FiltroFieldMeta setSupportedOperations(Set<FiltroOperator> supportedOperations) {
+    FiltroFieldMeta setSupportedOperations(Set<FiltroOperator> supportedOperations) {
         this.supportedOperations = supportedOperations;
         return this;
     }
@@ -78,7 +83,7 @@ public class FiltroFieldMeta {
         return description;
     }
 
-    public FiltroFieldMeta setDescription(String description) {
+    FiltroFieldMeta setDescription(String description) {
         this.description = description;
         return this;
     }
@@ -87,7 +92,7 @@ public class FiltroFieldMeta {
         return enumerationClass;
     }
 
-    public FiltroFieldMeta setEnumerationClass(Class<?> enumerationClass) {
+    FiltroFieldMeta setEnumerationClass(Class<?> enumerationClass) {
         this.enumerationClass = enumerationClass;
         return this;
     }
@@ -96,7 +101,7 @@ public class FiltroFieldMeta {
         return enumerationDictionary;
     }
 
-    public FiltroFieldMeta setEnumerationDictionary(Map<String, String> enumerationDictionary) {
+    FiltroFieldMeta setEnumerationDictionary(Map<String, String> enumerationDictionary) {
         this.enumerationDictionary = enumerationDictionary;
         return this;
     }
@@ -105,8 +110,17 @@ public class FiltroFieldMeta {
         return groups;
     }
 
-    public FiltroFieldMeta setGroups(Set<Class<?>> groups) {
+    FiltroFieldMeta setGroups(Set<Class<?>> groups) {
         this.groups = groups;
+        return this;
+    }
+
+    public int getMaxInSize() {
+        return maxInSize;
+    }
+
+    FiltroFieldMeta setMaxInSize(int maxInSize) {
+        this.maxInSize = maxInSize;
         return this;
     }
 }

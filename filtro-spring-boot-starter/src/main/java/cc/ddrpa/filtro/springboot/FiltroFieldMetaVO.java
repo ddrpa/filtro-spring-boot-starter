@@ -2,7 +2,7 @@ package cc.ddrpa.filtro.springboot;
 
 import cc.ddrpa.filtro.core.field.FiltroFieldMeta;
 import cc.ddrpa.filtro.core.field.FiltroOperator;
-import cc.ddrpa.filtro.core.field.FiltroValueType;
+import cc.ddrpa.filtro.core.field.QueryIntent;
 
 import java.util.Map;
 import java.util.Set;
@@ -11,8 +11,8 @@ public class FiltroFieldMetaVO {
     // RSQL 字段名
     private String field;
 
-    // 数据类型
-    private FiltroValueType filtroValueType;
+    // 查询意图
+    private QueryIntent queryIntent;
 
     // 支持的操作符
     private Set<FiltroOperator> supportedOperations;
@@ -26,7 +26,7 @@ public class FiltroFieldMetaVO {
     public static FiltroFieldMetaVO from(FiltroFieldMeta meta) {
         FiltroFieldMetaVO vo = new FiltroFieldMetaVO();
         vo.setField(meta.getField());
-        vo.setFiltroValueType(meta.getFiltroValueType());
+        vo.setQueryIntent(meta.getQueryIntent());
         vo.setSupportedOperations(meta.getSupportedOperations());
         vo.setDescription(meta.getDescription());
         if (meta.isEnumeration()) {
@@ -44,12 +44,12 @@ public class FiltroFieldMetaVO {
         return this;
     }
 
-    public FiltroValueType getFiltroValueType() {
-        return filtroValueType;
+    public QueryIntent getQueryIntent() {
+        return queryIntent;
     }
 
-    public FiltroFieldMetaVO setFiltroValueType(FiltroValueType filtroValueType) {
-        this.filtroValueType = filtroValueType;
+    public FiltroFieldMetaVO setQueryIntent(QueryIntent queryIntent) {
+        this.queryIntent = queryIntent;
         return this;
     }
 

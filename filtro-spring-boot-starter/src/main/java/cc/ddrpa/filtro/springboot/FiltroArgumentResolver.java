@@ -9,6 +9,8 @@ import cz.jirutka.rsql.parser.RSQLParser;
 import cz.jirutka.rsql.parser.ast.ComparisonOperator;
 import cz.jirutka.rsql.parser.ast.Node;
 import cz.jirutka.rsql.parser.ast.RSQLOperators;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.MethodParameter;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.support.WebDataBinderFactory;
@@ -20,6 +22,7 @@ import java.util.*;
 import java.util.stream.Stream;
 
 public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
+    private static final Logger logger = LoggerFactory.getLogger(FiltroArgumentResolver.class);
 
     private final RSQLParser rsqlParser;
     private final FiltroRegistry filtroRegistry;
@@ -46,10 +49,16 @@ public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
                                   NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         String query = webRequest.getParameter("q");
         if (!StringUtils.hasText(query)) {
-            // NEED_CHECK 返回 null 合适还是根据类型返回空对象合适？
+            if (logger.isDebugEnabled()) {
+                logger.debug("Empty 'q' parameter for Filtro method parameter '{}', returning null",
+                        parameter.getParameterName());
+            }
             return null;
         }
         Node queryRootNode = rsqlParser.parse(query);
+        if (logger.isDebugEnabled()) {
+            logger.debug("RSQL parsed: {}", queryRootNode);
+        }
         Filtro filtroAnno = parameter.getParameterAnnotation(Filtro.class);
         Class<?> entityType = filtroAnno.value();
         Class<?> entityGroup = filtroAnno.group();

@@ -6,7 +6,7 @@
     <parent>
         <groupId>cc.ddrpa.filtro</groupId>
         <artifactId>filtro-parent</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.0.2-SNAPSHOT</version>
     </parent>
 
     <artifactId>filtro-mp-query-wrapper-support</artifactId>
@@ -23,7 +23,7 @@
         <dependency>
             <groupId>cc.ddrpa.filtro</groupId>
             <artifactId>filtro-core</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>

@@ -1,7 +1,7 @@
 package cc.ddrpa.filtro.core.annotation;
 
 import cc.ddrpa.filtro.core.field.FiltroOperator;
-import cc.ddrpa.filtro.core.field.FiltroValueType;
+import cc.ddrpa.filtro.core.field.QueryIntent;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -30,14 +30,19 @@ public @interface FiltroField {
     String key() default "";
 
     /**
-     * 字段类型，若不声明，则由系统根据数据类型自动推断
+     * 查询意图，若不声明（{@code AUTO}），则由系统根据 Java 字段类型自动推断。
      */
-    FiltroValueType type() default FiltroValueType.UNDECIDED;
+    QueryIntent intent() default QueryIntent.AUTO;
 
     /**
      * 支持的操作符列表，若不声明，则由系统根据字段类型自动推断
      */
     FiltroOperator[] operators() default {};
+
+    /**
+     * IN / NOT_IN 参数数量上限，0 表示不限制。默认 0。
+     */
+    int maxInSize() default 0;
 
     /**
      * 适用分组，参考 Jakarta Bean Validation 的 group 概念
