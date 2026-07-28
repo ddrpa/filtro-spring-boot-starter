@@ -46,7 +46,7 @@ public class FiltroRegistry {
         } else {
             return metadataStore.get(criteriaType)
                     .stream()
-                    // NEED_CHECK 检查会不会反了
+                    // metaGroup is a subtype of the field's declared group → field is included
                     .filter(f -> f.getGroups().isEmpty()
                             || f.getGroups().stream().anyMatch(g -> g.isAssignableFrom(metaGroup)))
                     .toList();

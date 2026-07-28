@@ -22,10 +22,10 @@ public class MybatisPlusQueryWrapperVisitor extends AbstractRSQLVisitor<QueryWra
 
     public static <T extends Enum<T>> T toEnum(Class<?> clazz, String name) {
         if (clazz == null || name == null) {
-            return null;
+            throw new IllegalArgumentException("Enum class and name must not be null");
         }
         if (!clazz.isEnum()) {
-            throw new IllegalArgumentException(clazz + " 不是枚举类型");
+            throw new IllegalArgumentException(clazz + " is not an enum type");
         }
 
         @SuppressWarnings("unchecked")
@@ -34,7 +34,8 @@ public class MybatisPlusQueryWrapperVisitor extends AbstractRSQLVisitor<QueryWra
         try {
             return (T) Enum.valueOf(enumClass, name);
         } catch (IllegalArgumentException e) {
-            return null;
+            throw new IllegalArgumentException(
+                    "No enum constant " + clazz.getCanonicalName() + "." + name, e);
         }
     }
 

@@ -47,7 +47,7 @@ public class FiltroFieldMeta {
         return field;
     }
 
-    FiltroFieldMeta setField(String field) {
+    public FiltroFieldMeta setField(String field) {
         this.field = field;
         return this;
     }
@@ -56,7 +56,7 @@ public class FiltroFieldMeta {
         return key;
     }
 
-    FiltroFieldMeta setKey(String key) {
+    public FiltroFieldMeta setKey(String key) {
         this.key = key;
         return this;
     }
@@ -65,7 +65,7 @@ public class FiltroFieldMeta {
         return queryIntent;
     }
 
-    FiltroFieldMeta setQueryIntent(QueryIntent queryIntent) {
+    public FiltroFieldMeta setQueryIntent(QueryIntent queryIntent) {
         this.queryIntent = queryIntent;
         return this;
     }
@@ -74,7 +74,7 @@ public class FiltroFieldMeta {
         return supportedOperations;
     }
 
-    FiltroFieldMeta setSupportedOperations(Set<FiltroOperator> supportedOperations) {
+    public FiltroFieldMeta setSupportedOperations(Set<FiltroOperator> supportedOperations) {
         this.supportedOperations = supportedOperations;
         return this;
     }
@@ -83,7 +83,7 @@ public class FiltroFieldMeta {
         return description;
     }
 
-    FiltroFieldMeta setDescription(String description) {
+    public FiltroFieldMeta setDescription(String description) {
         this.description = description;
         return this;
     }
@@ -92,7 +92,7 @@ public class FiltroFieldMeta {
         return enumerationClass;
     }
 
-    FiltroFieldMeta setEnumerationClass(Class<?> enumerationClass) {
+    public FiltroFieldMeta setEnumerationClass(Class<?> enumerationClass) {
         this.enumerationClass = enumerationClass;
         return this;
     }
@@ -101,7 +101,7 @@ public class FiltroFieldMeta {
         return enumerationDictionary;
     }
 
-    FiltroFieldMeta setEnumerationDictionary(Map<String, String> enumerationDictionary) {
+    public FiltroFieldMeta setEnumerationDictionary(Map<String, String> enumerationDictionary) {
         this.enumerationDictionary = enumerationDictionary;
         return this;
     }
@@ -110,7 +110,7 @@ public class FiltroFieldMeta {
         return groups;
     }
 
-    FiltroFieldMeta setGroups(Set<Class<?>> groups) {
+    public FiltroFieldMeta setGroups(Set<Class<?>> groups) {
         this.groups = groups;
         return this;
     }
@@ -119,7 +119,7 @@ public class FiltroFieldMeta {
         return maxInSize;
     }
 
-    FiltroFieldMeta setMaxInSize(int maxInSize) {
+    public FiltroFieldMeta setMaxInSize(int maxInSize) {
         this.maxInSize = maxInSize;
         return this;
     }

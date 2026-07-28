@@ -19,6 +19,7 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
@@ -30,8 +31,10 @@ public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
 
     public FiltroArgumentResolver(FiltroRegistry filtroRegistry, List<RsqlNodeHandler<?>> factories) {
         Set<ComparisonOperator> comparisonOperatorSet = new HashSet<>(RSQLOperators.defaultOperators());
+        Pattern symbolPattern = Pattern.compile("=[a-zA-Z]*=|[><]=?|!=");
         Stream.of(FiltroOperator.values())
                 .filter(op -> !op.isRsqlOriginal())
+                .filter(op -> symbolPattern.matcher(op.getSymbol()).matches())
                 .map(op -> new ComparisonOperator(op.getSymbol(), op.isMultiValue()))
                 .forEach(comparisonOperatorSet::add);
         this.rsqlParser = new RSQLParser(comparisonOperatorSet);

@@ -167,6 +167,7 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
      * @param method
      */
     private void processMethod(Method method) {
+        boolean metadataEndpointRegistered = false;
         for (Parameter parameter : method.getParameters()) {
             if (!parameter.isAnnotationPresent(Filtro.class)) {
                 continue;
@@ -174,23 +175,22 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
             Filtro filtroAnno = parameter.getAnnotation(Filtro.class);
             Class<?> criteriaType = filtroAnno.value();
             Class<?> metadataGroup = filtroAnno.group();
-            // 获取 url 映射，在 endpoint 后面补充添加后缀后注册一个新 endpoint
-            // 访问该地址返回构造 schema
-            if (filtroProperties.isEnableMetadataEndpoint()) {
+            // 元数据端点每个方法只注册一次
+            if (!metadataEndpointRegistered && filtroProperties.isEnableMetadataEndpoint()) {
                 try {
                     Optional<String> metadataEndpoint = registerMetadataEndpoint(method);
                     metadataEndpoint.ifPresent(s ->
                             metadataEndpoint2TypeAndGroup.put(s, ImmutablePair.of(criteriaType, metadataGroup)));
+                    metadataEndpointRegistered = true;
                 } catch (NoSuchMethodException e) {
                     logger.warn("Failed to register Filtro metadata endpoint for method {}: {}",
                             method.getName(), e.getMessage());
                 }
             }
             if (filtroRegistry.hasType(criteriaType)) {
-                // 如果已经注册过该 criteriaType，则跳过
+                logger.debug("Filtro entity '{}' already registered, skipping", criteriaType.getSimpleName());
                 continue;
             }
-            // 解析声明的 criteriaType
             List<FiltroFieldMeta> filtroFieldMetas = new ArrayList<>();
             for (Field field : criteriaType.getDeclaredFields()) {
                 FiltroField fieldSpecAnno = field.getAnnotation(FiltroField.class);
@@ -208,8 +208,6 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
             logger.info("Filtro registered entity '{}' with {} filterable fields from controller {}",
                     criteriaType.getSimpleName(), filtroFieldMetas.size(),
                     method.getDeclaringClass().getSimpleName());
-            // 注册完一个立即退出，无法处理多个 Filtro 注解（只能生成一个 metadata endpoint）
-            return;
         }
     }
 }
