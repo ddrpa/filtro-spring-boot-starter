@@ -55,33 +55,33 @@ class FiltroQueryFieldMetaBuilderTest {
         @Filtro
         private String title;            // SEARCH
         @Filtro
-        private Integer count;            // QUANTITY
+        private Integer count;            // RANGE
         @Filtro
-        private int countPrimitive;       // QUANTITY
+        private int countPrimitive;       // RANGE
         @Filtro
-        private Long bigCount;            // QUANTITY
+        private Long bigCount;            // RANGE
         @Filtro
-        private Short smallCount;         // QUANTITY
+        private Short smallCount;         // RANGE
         @Filtro
-        private Float ratio;              // MEASURE
+        private Float ratio;              // RANGE (float, no EQ)
         @Filtro
-        private Double score;             // MEASURE
+        private Double score;             // RANGE (float, no EQ)
         @Filtro
-        private BigDecimal amount;        // AMOUNT
+        private BigDecimal amount;        // RANGE
         @Filtro
-        private Boolean active;           // BOOLEAN
+        private Boolean active;           // EXACT
         @Filtro
-        private boolean activePrimitive;  // BOOLEAN
+        private boolean activePrimitive;  // EXACT
         @Filtro
-        private LocalDate date;           // DATETIME
+        private LocalDate date;           // RANGE
         @Filtro
-        private LocalDateTime dateTime;   // DATETIME
+        private LocalDateTime dateTime;   // RANGE
         @Filtro
-        private Instant instant;          // DATETIME
+        private Instant instant;          // RANGE
         @Filtro
-        private LocalTime time;           // DATETIME
+        private LocalTime time;           // RANGE
         @Filtro
-        private Genre genre;              // CATEGORY
+        private Genre genre;              // EXACT + enum dict
     }
 
     // ─── helpers ───
@@ -94,14 +94,11 @@ class FiltroQueryFieldMetaBuilderTest {
         @Filtro(field = "bookTitle", key = "t_book_title", value = "书名")
         private String title;                          // custom field/key/description
 
-        @Filtro(tooltip = "支持多选，最多 10 个")
+        @Filtro(value = "标签", tooltip = "支持多选，最多 10 个")
         private String labeledTag;                     // description + tooltip
 
-        @Filtro(value = "旧描述", tooltip = "新描述")
-        private String preferDescription;              // description 优先于 value
-
-        @Filtro(maxInSize = 10)
-        private String tag;                            // maxInSize
+        @Filtro(value = "新描述", tooltip = "提示文案")
+        private String preferDescription;              // value 作为 label
 
         @Filtro(groups = {AdminRole.class})
         private String secret;                         // group
@@ -113,10 +110,10 @@ class FiltroQueryFieldMetaBuilderTest {
         private String email;                          // SEARCH ∩ {CONTAINS} = {CONTAINS}
 
         @Filtro(operators = {FiltroOperator.LT, FiltroOperator.GT})
-        private Integer price;                         // QUANTITY ∩ {LT, GT} → +ALT_LT, ALT_GT
+        private Integer price;                         // RANGE ∩ {LT, GT} → +ALT_LT, ALT_GT
 
         @Filtro(operators = {FiltroOperator.CONTAINS})
-        private Integer nonsense;                      // CONTAINS ∉ QUANTITY → empty
+        private Integer nonsense;                      // CONTAINS ∉ RANGE → empty
     }
 
     // ─── type inference ───
@@ -130,73 +127,79 @@ class FiltroQueryFieldMetaBuilderTest {
         }
 
         @Test
-        void integerIsQuantity() {
-            assertThat(build(PlainTypes.class, "count").getQueryIntent()).isEqualTo(QueryIntent.QUANTITY);
+        void integerIsRange() {
+            assertThat(build(PlainTypes.class, "count").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void intPrimitiveIsQuantity() {
-            assertThat(build(PlainTypes.class, "countPrimitive").getQueryIntent()).isEqualTo(QueryIntent.QUANTITY);
+        void intPrimitiveIsRange() {
+            assertThat(build(PlainTypes.class, "countPrimitive").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void longIsQuantity() {
-            assertThat(build(PlainTypes.class, "bigCount").getQueryIntent()).isEqualTo(QueryIntent.QUANTITY);
+        void longIsRange() {
+            assertThat(build(PlainTypes.class, "bigCount").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void shortIsQuantity() {
-            assertThat(build(PlainTypes.class, "smallCount").getQueryIntent()).isEqualTo(QueryIntent.QUANTITY);
+        void shortIsRange() {
+            assertThat(build(PlainTypes.class, "smallCount").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void floatIsMeasure() {
-            assertThat(build(PlainTypes.class, "ratio").getQueryIntent()).isEqualTo(QueryIntent.MEASURE);
+        void floatIsRange() {
+            assertThat(build(PlainTypes.class, "ratio").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void doubleIsMeasure() {
-            assertThat(build(PlainTypes.class, "score").getQueryIntent()).isEqualTo(QueryIntent.MEASURE);
+        void doubleIsRange() {
+            assertThat(build(PlainTypes.class, "score").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void bigDecimalIsAmount() {
-            assertThat(build(PlainTypes.class, "amount").getQueryIntent()).isEqualTo(QueryIntent.AMOUNT);
+        void bigDecimalIsRange() {
+            assertThat(build(PlainTypes.class, "amount").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void booleanIsBoolean() {
-            assertThat(build(PlainTypes.class, "active").getQueryIntent()).isEqualTo(QueryIntent.BOOLEAN);
+        void booleanIsExact() {
+            assertThat(build(PlainTypes.class, "active").getQueryIntent()).isEqualTo(QueryIntent.EXACT);
         }
 
         @Test
-        void boolPrimitiveIsBoolean() {
-            assertThat(build(PlainTypes.class, "activePrimitive").getQueryIntent()).isEqualTo(QueryIntent.BOOLEAN);
+        void boolPrimitiveIsExact() {
+            assertThat(build(PlainTypes.class, "activePrimitive").getQueryIntent()).isEqualTo(QueryIntent.EXACT);
         }
 
         @Test
-        void localDateIsDatetime() {
-            assertThat(build(PlainTypes.class, "date").getQueryIntent()).isEqualTo(QueryIntent.DATETIME);
+        void localDateIsRange() {
+            assertThat(build(PlainTypes.class, "date").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void localDateTimeIsDatetime() {
-            assertThat(build(PlainTypes.class, "dateTime").getQueryIntent()).isEqualTo(QueryIntent.DATETIME);
+        void localDateTimeIsRange() {
+            assertThat(build(PlainTypes.class, "dateTime").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void instantIsDatetime() {
-            assertThat(build(PlainTypes.class, "instant").getQueryIntent()).isEqualTo(QueryIntent.DATETIME);
+        void instantIsRange() {
+            assertThat(build(PlainTypes.class, "instant").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void localTimeIsDatetime() {
-            assertThat(build(PlainTypes.class, "time").getQueryIntent()).isEqualTo(QueryIntent.DATETIME);
+        void localTimeIsRange() {
+            assertThat(build(PlainTypes.class, "time").getQueryIntent()).isEqualTo(QueryIntent.RANGE);
         }
 
         @Test
-        void enumIsCategory() {
-            assertThat(build(PlainTypes.class, "genre").getQueryIntent()).isEqualTo(QueryIntent.CATEGORY);
+        void enumIsExact() {
+            assertThat(build(PlainTypes.class, "genre").getQueryIntent()).isEqualTo(QueryIntent.EXACT);
+        }
+
+        @Test
+        void javaTypeIsPreserved() {
+            assertThat(build(PlainTypes.class, "count").getJavaType()).isEqualTo(Integer.class);
+            assertThat(build(PlainTypes.class, "title").getJavaType()).isEqualTo(String.class);
         }
     }
 
@@ -210,37 +213,35 @@ class FiltroQueryFieldMetaBuilderTest {
         }
 
         @Test
-        void searchHasFuzzyOps() {
+        void searchHasContainsAndNullOps() {
             Set<FiltroOperator> o = ops("title");
-            assertThat(o).contains(FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
-                    FiltroOperator.IN, FiltroOperator.NOT_IN,
-                    FiltroOperator.PREFIX, FiltroOperator.SUFFIX, FiltroOperator.CONTAINS,
+            assertThat(o).containsExactlyInAnyOrder(
+                    FiltroOperator.CONTAINS, FiltroOperator.NOT_CONTAINS,
                     FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL);
-            assertThat(o).hasSize(10);
         }
 
         @Test
-        void quantityHasFullNumericWithAlts() {
+        void rangeIntegerHasComparisonWithEqNoIn() {
             Set<FiltroOperator> o = ops("count");
-            assertThat(o).contains(FiltroOperator.EQ, FiltroOperator.NEQ,
+            assertThat(o).containsExactlyInAnyOrder(
+                    FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
                     FiltroOperator.GT, FiltroOperator.ALT_GT, FiltroOperator.GTE, FiltroOperator.ALT_GTE,
                     FiltroOperator.LT, FiltroOperator.ALT_LT, FiltroOperator.LTE, FiltroOperator.ALT_LTE,
-                    FiltroOperator.IN, FiltroOperator.NOT_IN,
                     FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL);
+            assertThat(o).doesNotContain(FiltroOperator.IN, FiltroOperator.NOT_IN);
         }
 
         @Test
-        void measureHasRangeNoEq() {
+        void rangeFloatHasRangeNoEq() {
             Set<FiltroOperator> o = ops("ratio");
-            assertThat(o).doesNotContain(FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ);
-            assertThat(o).contains(FiltroOperator.GT, FiltroOperator.LT,
+            assertThat(o).containsExactlyInAnyOrder(
+                    FiltroOperator.GT, FiltroOperator.LT,
                     FiltroOperator.ALT_GT, FiltroOperator.ALT_LT,
-                    FiltroOperator.IN, FiltroOperator.NOT_IN,
                     FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL);
         }
 
         @Test
-        void booleanHasEqNeqOnly() {
+        void booleanExactHasEqNeqAndNull() {
             Set<FiltroOperator> o = ops("active");
             assertThat(o).containsExactlyInAnyOrder(
                     FiltroOperator.EQ, FiltroOperator.NEQ,
@@ -248,22 +249,24 @@ class FiltroQueryFieldMetaBuilderTest {
         }
 
         @Test
-        void datetimeHasFullComparison() {
+        void rangeDatetimeHasFullComparisonNoIn() {
             Set<FiltroOperator> o = ops("date");
-            assertThat(o).contains(FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
+            assertThat(o).containsExactlyInAnyOrder(
+                    FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
                     FiltroOperator.GT, FiltroOperator.ALT_GT, FiltroOperator.GTE, FiltroOperator.ALT_GTE,
                     FiltroOperator.LT, FiltroOperator.ALT_LT, FiltroOperator.LTE, FiltroOperator.ALT_LTE,
-                    FiltroOperator.IN, FiltroOperator.NOT_IN,
                     FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL);
+            assertThat(o).doesNotContain(FiltroOperator.IN, FiltroOperator.NOT_IN);
         }
 
         @Test
-        void categoryHasEqInNoFuzzy() {
+        void enumExactHasEqInNoFuzzy() {
             Set<FiltroOperator> o = ops("genre");
-            assertThat(o).contains(FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
+            assertThat(o).containsExactlyInAnyOrder(
+                    FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
                     FiltroOperator.IN, FiltroOperator.NOT_IN,
                     FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL);
-            assertThat(o).doesNotContain(FiltroOperator.PREFIX, FiltroOperator.SUFFIX, FiltroOperator.CONTAINS);
+            assertThat(o).doesNotContain(FiltroOperator.CONTAINS, FiltroOperator.NOT_CONTAINS);
         }
     }
 
@@ -276,7 +279,7 @@ class FiltroQueryFieldMetaBuilderTest {
         void explicitIntentOverridesInference() {
             FiltroFieldMeta meta = build(OverrideFields.class, "isbn");
             assertThat(meta.getQueryIntent()).isEqualTo(QueryIntent.EXACT);
-            assertThat(meta.getSupportedOperations()).doesNotContain(FiltroOperator.PREFIX, FiltroOperator.CONTAINS);
+            assertThat(meta.getSupportedOperations()).doesNotContain(FiltroOperator.CONTAINS, FiltroOperator.NOT_CONTAINS);
         }
 
         @Test
@@ -302,9 +305,11 @@ class FiltroQueryFieldMetaBuilderTest {
         }
 
         @Test
-        void descriptionTakesPrecedenceOverValue() {
+        void valueSetsLabel() {
             assertThat(build(OverrideFields.class, "preferDescription").getLabel())
                     .isEqualTo("新描述");
+            assertThat(build(OverrideFields.class, "preferDescription").getTooltip())
+                    .isEqualTo("提示文案");
         }
 
         @Test
@@ -320,16 +325,6 @@ class FiltroQueryFieldMetaBuilderTest {
         @Test
         void defaultKeyIsSnakeCase() {
             assertThat(build(PlainTypes.class, "bigCount").getKey()).isEqualTo("big_count");
-        }
-
-        @Test
-        void maxInSize() {
-            assertThat(build(OverrideFields.class, "tag").getMaxInSize()).isEqualTo(10);
-        }
-
-        @Test
-        void defaultMaxInSizeIsZero() {
-            assertThat(build(PlainTypes.class, "title").getMaxInSize()).isZero();
         }
 
         @Test
@@ -367,7 +362,7 @@ class FiltroQueryFieldMetaBuilderTest {
         @Test
         void incompatibleOpGetsFilteredOut() {
             FiltroFieldMeta meta = buildWithOps(OperatorSubtraction.class, "nonsense");
-            // CONTAINS is not in QUANTITY default set → retainedAll results in empty
+            // CONTAINS is not in RANGE default set → retainedAll results in empty
             assertThat(meta.getSupportedOperations()).isEmpty();
         }
 
@@ -375,7 +370,8 @@ class FiltroQueryFieldMetaBuilderTest {
         void emptyOperatorsUsesDefaultFullSet() {
             FiltroFieldMeta meta = build(PlainTypes.class, "title");
             assertThat(meta.getSupportedOperations()).isNotEmpty();
-            assertThat(meta.getSupportedOperations()).contains(FiltroOperator.EQ, FiltroOperator.PREFIX);
+            assertThat(meta.getSupportedOperations()).contains(FiltroOperator.CONTAINS, FiltroOperator.NOT_CONTAINS);
+            assertThat(meta.getSupportedOperations()).doesNotContain(FiltroOperator.EQ);
         }
     }
 

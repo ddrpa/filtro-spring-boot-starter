@@ -17,12 +17,6 @@ import java.util.List;
 @EnableConfigurationProperties(FiltroProperties.class)
 public class FiltroAutoConfiguration {
 
-    private final List<RsqlNodeHandler<?>> factories;
-
-    public FiltroAutoConfiguration(List<RsqlNodeHandler<?>> factories) {
-        this.factories = factories;
-    }
-
     @Bean
     @ConditionalOnMissingBean(name = "filtroExceptionHandler")
     public FiltroExceptionHandler filtroExceptionHandler() {
@@ -30,7 +24,8 @@ public class FiltroAutoConfiguration {
     }
 
     @Bean
-    public FiltroWebMvcConfigurer filtroWebMvcConfigurer(FiltroRegistry registry) {
+    public FiltroWebMvcConfigurer filtroWebMvcConfigurer(FiltroRegistry registry,
+                                                        List<RsqlNodeHandler<?>> factories) {
         return new FiltroWebMvcConfigurer(registry, factories);
     }
 

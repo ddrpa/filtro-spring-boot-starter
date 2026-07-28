@@ -58,15 +58,20 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
             return;
         }
         logger.info("FiltroQuery scanning controllers in packages: {}", (Object) packages);
+        // 避免 @RestController（元标注了 @Controller）被处理两次
+        Set<String> processedClasses = new HashSet<>();
         try (ScanResult scanResult = new ClassGraph()
                 .enableAnnotationInfo()
                 .acceptPackages(packages)
                 .scan()) {
             for (Class<?> controllerClazz : scanResult.getClassesWithAnnotation(RestController.class.getName()).loadClasses()) {
                 processControllerClass(controllerClazz);
+                processedClasses.add(controllerClazz.getName());
             }
             for (Class<?> controllerClazz : scanResult.getClassesWithAnnotation(Controller.class.getName()).loadClasses()) {
-                processControllerClass(controllerClazz);
+                if (processedClasses.add(controllerClazz.getName())) {
+                    processControllerClass(controllerClazz);
+                }
             }
         }
         logger.info("FiltroQuery scanning complete — {} entity types registered, {} metadata endpoints",

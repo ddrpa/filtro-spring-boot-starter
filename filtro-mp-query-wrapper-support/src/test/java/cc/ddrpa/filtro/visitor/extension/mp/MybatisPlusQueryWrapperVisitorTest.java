@@ -27,11 +27,13 @@ class MybatisPlusQueryWrapperVisitorTest {
     private Map<String, FiltroFieldMeta> fieldMap;
     private RSQLParser parser;
 
-    private static FiltroFieldMeta meta(String field, String key, QueryIntent intent, Set<FiltroOperator> ops) {
+    private static FiltroFieldMeta meta(String field, String key, QueryIntent intent,
+                                        Class<?> javaType, Set<FiltroOperator> ops) {
         FiltroFieldMeta m = new FiltroFieldMeta();
         m.setField(field);
         m.setKey(key);
         m.setQueryIntent(intent);
+        m.setJavaType(javaType);
         m.setSupportedOperations(ops);
         return m;
     }
@@ -39,14 +41,15 @@ class MybatisPlusQueryWrapperVisitorTest {
     @BeforeEach
     void setUp() {
         fieldMap = Map.of(
-                "title", meta("title", "title", QueryIntent.SEARCH,
-                        Set.of(FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
-                                FiltroOperator.CONTAINS, FiltroOperator.PREFIX, FiltroOperator.SUFFIX,
-                                FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL)),
-                "price", meta("price", "price", QueryIntent.QUANTITY,
+                "title", meta("title", "title", QueryIntent.SEARCH, String.class,
+                        Set.of(FiltroOperator.EQ, FiltroOperator.NEQ,
+                                FiltroOperator.CONTAINS, FiltroOperator.NOT_CONTAINS,
+                                FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL,
+                                FiltroOperator.NULLABLE_NEQ)),
+                "price", meta("price", "price", QueryIntent.RANGE, Integer.class,
                         Set.of(FiltroOperator.EQ, FiltroOperator.GT, FiltroOperator.ALT_GT,
                                 FiltroOperator.LT, FiltroOperator.ALT_LT, FiltroOperator.IN)),
-                "status", meta("status", "status", QueryIntent.CATEGORY,
+                "status", meta("status", "status", QueryIntent.EXACT, Status.class,
                         Set.of(FiltroOperator.EQ, FiltroOperator.IN, FiltroOperator.NOT_IN))
         );
         // set enum class for status
@@ -108,15 +111,9 @@ class MybatisPlusQueryWrapperVisitorTest {
         }
 
         @Test
-        void prefixGeneratesLikeRight() {
-            QueryWrapper<?> w = parse("title=prefix=java");
-            assertThat(w.getSqlSegment()).contains("LIKE");
-        }
-
-        @Test
-        void suffixGeneratesLikeLeft() {
-            QueryWrapper<?> w = parse("title=suffix=java");
-            assertThat(w.getSqlSegment()).contains("LIKE");
+        void notContainsGeneratesNotLike() {
+            QueryWrapper<?> w = parse("title=nocontains=java");
+            assertThat(w.getSqlSegment()).contains("NOT LIKE");
         }
 
         @Test
@@ -129,6 +126,12 @@ class MybatisPlusQueryWrapperVisitorTest {
         void notNullGeneratesIsNotNull() {
             QueryWrapper<?> w = parse("title=nonull=''");
             assertThat(w.getSqlSegment()).contains("IS NOT NULL");
+        }
+
+        @Test
+        void nullableNeqGeneratesOrIsNull() {
+            QueryWrapper<?> w = parse("title=nullableneq=hello");
+            assertThat(w.getSqlSegment()).contains("IS NULL");
         }
     }
 

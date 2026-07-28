@@ -25,36 +25,39 @@ class MeilisearchFilterVisitorTest {
     private Map<String, FiltroFieldMeta> fieldMap;
     private RSQLParser parser;
 
-    private static FiltroFieldMeta meta(String field, String key, QueryIntent intent, Set<FiltroOperator> ops) {
+    private static FiltroFieldMeta meta(String field, String key, QueryIntent intent,
+                                        Class<?> javaType, Set<FiltroOperator> ops) {
         FiltroFieldMeta m = new FiltroFieldMeta();
         m.setField(field);
         m.setKey(key);
         m.setQueryIntent(intent);
+        m.setJavaType(javaType);
         m.setSupportedOperations(ops);
         return m;
     }
 
     @BeforeEach
     void setUp() {
-        FiltroFieldMeta status = meta("status", "status", QueryIntent.CATEGORY,
+        FiltroFieldMeta status = meta("status", "status", QueryIntent.EXACT, Status.class,
                 Set.of(FiltroOperator.EQ, FiltroOperator.IN, FiltroOperator.NOT_IN));
         status.setEnumerationClass(Status.class);
 
         fieldMap = new HashMap<>();
-        fieldMap.put("title", meta("title", "title", QueryIntent.SEARCH,
+        fieldMap.put("title", meta("title", "title", QueryIntent.SEARCH, String.class,
                 Set.of(FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
-                        FiltroOperator.CONTAINS, FiltroOperator.PREFIX, FiltroOperator.SUFFIX,
-                        FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL, FiltroOperator.IN)));
-        fieldMap.put("price", meta("price", "price", QueryIntent.QUANTITY,
+                        FiltroOperator.CONTAINS, FiltroOperator.NOT_CONTAINS, FiltroOperator.IN,
+                        FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL)));
+        fieldMap.put("price", meta("price", "price", QueryIntent.RANGE, Integer.class,
                 Set.of(FiltroOperator.EQ, FiltroOperator.GT, FiltroOperator.ALT_GT,
                         FiltroOperator.GTE, FiltroOperator.ALT_GTE,
                         FiltroOperator.LT, FiltroOperator.ALT_LT,
                         FiltroOperator.LTE, FiltroOperator.ALT_LTE, FiltroOperator.IN)));
-        fieldMap.put("rating", meta("rating", "rating", QueryIntent.MEASURE,
+        fieldMap.put("rating", meta("rating", "rating", QueryIntent.RANGE, Double.class,
                 Set.of(FiltroOperator.GT, FiltroOperator.ALT_GT, FiltroOperator.LT, FiltroOperator.ALT_LT)));
-        fieldMap.put("active", meta("active", "active", QueryIntent.BOOLEAN,
+        fieldMap.put("active", meta("active", "active", QueryIntent.EXACT, Boolean.class,
                 Set.of(FiltroOperator.EQ, FiltroOperator.NEQ)));
-        fieldMap.put("publishedAt", meta("publishedAt", "published_at", QueryIntent.DATETIME,
+        fieldMap.put("publishedAt", meta("publishedAt", "published_at", QueryIntent.RANGE,
+                java.time.LocalDateTime.class,
                 Set.of(FiltroOperator.GT, FiltroOperator.ALT_GT, FiltroOperator.EQ)));
         fieldMap.put("status", status);
 
@@ -155,8 +158,8 @@ class MeilisearchFilterVisitorTest {
     }
 
     @Nested
-    @DisplayName("集合与空值")
-    class CollectionAndNull {
+    @DisplayName("集合")
+    class CollectionOps {
         @Test
         void in() {
             assertThat(parse("price=in=(10,20)")).isEqualTo("price IN [10, 20]");
@@ -166,6 +169,20 @@ class MeilisearchFilterVisitorTest {
         void notInEnum() {
             assertThat(parse("status=out=(ACTIVE,INACTIVE)"))
                     .isEqualTo("status NOT IN [\"ACTIVE\", \"INACTIVE\"]");
+        }
+    }
+
+    @Nested
+    @DisplayName("字符串模糊匹配")
+    class StringFuzzy {
+        @Test
+        void contains() {
+            assertThat(parse("title=contains=java")).isEqualTo("title CONTAINS \"java\"");
+        }
+
+        @Test
+        void notContains() {
+            assertThat(parse("title=nocontains=java")).isEqualTo("title NOT CONTAINS \"java\"");
         }
 
         @Test
@@ -180,38 +197,8 @@ class MeilisearchFilterVisitorTest {
 
         @Test
         void nullableNeq() {
-            MeilisearchFilterVisitor visitor = new MeilisearchFilterVisitor(fieldMap) {
-                @Override
-                protected ResolvedComparison resolve(ComparisonNode node) {
-                    return new ResolvedComparison(
-                            fieldMap.get("title"), FiltroOperator.NULLABLE_NEQ, List.of("hello"));
-                }
-            };
-            ComparisonNode node = new ComparisonNode(
-                    RSQLOperators.EQUAL, "title", List.of("hello"));
-            assertThat(visitor.visit(node, null))
+            assertThat(parse("title=nullableneq=hello"))
                     .isEqualTo("(title != \"hello\" OR title IS NULL)");
-        }
-    }
-
-    @Nested
-    @DisplayName("字符串模糊匹配")
-    class StringFuzzy {
-        @Test
-        void contains() {
-            assertThat(parse("title=contains=java")).isEqualTo("title CONTAINS \"java\"");
-        }
-
-        @Test
-        void prefix() {
-            assertThat(parse("title=prefix=ja")).isEqualTo("title STARTS WITH \"ja\"");
-        }
-
-        @Test
-        void suffixUnsupported() {
-            assertThatThrownBy(() -> parse("title=suffix=va"))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("ENDS WITH");
         }
     }
 

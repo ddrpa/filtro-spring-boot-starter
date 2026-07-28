@@ -6,6 +6,7 @@ import cc.ddrpa.filtro.core.field.FiltroOperator;
 import cc.ddrpa.filtro.core.rsql.AbstractRSQLVisitor;
 import cz.jirutka.rsql.parser.ast.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -88,13 +89,10 @@ public class MeilisearchFilterVisitor extends AbstractRSQLVisitor<String>
             case LTE, ALT_LTE -> condition(attr, "<=", formatValue(meta, arguments.get(0)));
             case IN -> attr + " IN [" + formatList(meta, arguments) + "]";
             case NOT_IN -> attr + " NOT IN [" + formatList(meta, arguments) + "]";
-            case PREFIX -> condition(attr, "STARTS WITH", formatValue(meta, arguments.get(0)));
             case CONTAINS -> condition(attr, "CONTAINS", formatValue(meta, arguments.get(0)));
+            case NOT_CONTAINS -> condition(attr, "NOT CONTAINS", formatValue(meta, arguments.get(0)));
             case IS_NULL -> attr + " IS NULL";
             case NOT_NULL -> attr + " IS NOT NULL";
-            case SUFFIX -> throw new IllegalArgumentException(
-                    "FiltroOperator " + operator.getSymbol()
-                            + " is not supported in MeilisearchFilterVisitor (no ENDS WITH)");
             default -> throw new IllegalArgumentException(
                     "FiltroOperator " + operator.getSymbol()
                             + " is not supported in " + this.getClass().getSimpleName());
@@ -108,38 +106,49 @@ public class MeilisearchFilterVisitor extends AbstractRSQLVisitor<String>
     }
 
     /**
-     * 按 QueryIntent 格式化字面量：数值/布尔无引号，字符串加双引号。
+     * 按 Java 字段类型格式化字面量：数值/布尔无引号，字符串加双引号。
      */
     private String formatValue(FiltroFieldMeta meta, String raw) {
-        return switch (meta.getQueryIntent()) {
-            case QUANTITY -> {
-                try {
-                    Long.parseLong(raw);
-                    yield raw;
-                } catch (NumberFormatException e) {
-                    throw new PredicateBuildException(meta.getField(), raw, "QUANTITY", e);
-                }
+        Class<?> type = meta.getJavaType();
+        if (type == null) {
+            throw new IllegalArgumentException("FiltroFieldMeta.javaType is required for Meilisearch formatting: "
+                    + meta.getField());
+        }
+        if (Integer.class.equals(type) || int.class.equals(type)
+                || Long.class.equals(type) || long.class.equals(type)
+                || Short.class.equals(type) || short.class.equals(type)) {
+            try {
+                Long.parseLong(raw);
+                return raw;
+            } catch (NumberFormatException e) {
+                throw new PredicateBuildException(meta.getField(), raw, "INT", e);
             }
-            case MEASURE, AMOUNT -> {
-                try {
-                    Double.parseDouble(raw);
-                    yield raw;
-                } catch (NumberFormatException e) {
-                    throw new PredicateBuildException(meta.getField(), raw,
-                            meta.getQueryIntent().name(), e);
-                }
+        }
+        if (Float.class.equals(type) || float.class.equals(type)
+                || Double.class.equals(type) || double.class.equals(type)) {
+            try {
+                Double.parseDouble(raw);
+                return raw;
+            } catch (NumberFormatException e) {
+                throw new PredicateBuildException(meta.getField(), raw, type.getSimpleName(), e);
             }
-            case BOOLEAN -> {
-                if (!"true".equalsIgnoreCase(raw) && !"false".equalsIgnoreCase(raw)) {
-                    throw new PredicateBuildException(meta.getField(), raw, "BOOLEAN",
-                            new IllegalArgumentException("not a boolean"));
-                }
-                yield Boolean.parseBoolean(raw) ? "true" : "false";
+        }
+        if (BigDecimal.class.equals(type)
+                || "org.bson.types.Decimal128".equals(type.getName())) {
+            try {
+                new BigDecimal(raw);
+                return raw;
+            } catch (NumberFormatException e) {
+                throw new PredicateBuildException(meta.getField(), raw, type.getSimpleName(), e);
             }
-            case SEARCH, EXACT, CATEGORY, DATETIME -> quote(raw);
-            default -> throw new IllegalArgumentException(
-                    "QueryIntent " + meta.getQueryIntent()
-                            + " is not supported in " + this.getClass().getSimpleName());
-        };
+        }
+        if (Boolean.class.equals(type) || boolean.class.equals(type)) {
+            if (!"true".equalsIgnoreCase(raw) && !"false".equalsIgnoreCase(raw)) {
+                throw new PredicateBuildException(meta.getField(), raw, "BOOLEAN",
+                        new IllegalArgumentException("not a boolean"));
+            }
+            return Boolean.parseBoolean(raw) ? "true" : "false";
+        }
+        return quote(raw);
     }
 }

@@ -9,9 +9,9 @@
 ## 特性
 
 - **零注解默认行为** — 大多数场景下字段无需注解，系统根据 Java 类型自动推断查询意图和操作符集
-- **查询意图驱动** — 8 种 `QueryIntent`（SEARCH / EXACT / CATEGORY / QUANTITY / MEASURE / AMOUNT / DATETIME / BOOLEAN），而非按 Java 类型命名
-- `@FiltroField(intent = ...)` 即给默认操作符集，`operators` 做减法
-- 自动注册元数据接口，前端可凭 `queryIntent` 枚举名直接选择控件
+- **查询意图驱动** — 3 种 `QueryIntent`（SEARCH / EXACT / RANGE），表达查询形态；值转型与控件细节由 Java 字段类型推导
+- `@Filtro(intent = ...)` 给定默认操作符集，`operators` 做减法
+- 自动注册元数据接口，前端可凭 `queryIntent` + `component` / `dictionary` 选择控件
 - 基于 `classgraph` 的字节码扫描，无需加载类，启动快且兼容 JDK 17+
 - 自动装配 MyBatis-Plus / MongoDB / Meilisearch handler，无需手动注册 Bean
 - 类似 Jakarta Bean Validation 的分组概念，支持不同场景下的查询方案
@@ -67,34 +67,34 @@ filtro:
 
 ```java
 public class Book {
-    // 零注解：String → SEARCH（模糊搜索全量操作符）
+    // 零注解：String → SEARCH（模糊搜索）
     private String title;
 
-    // 零注解：Enum → CATEGORY（EQ / IN 等）
+    // 零注解：Enum → EXACT（EQ / IN 等）+ 枚举字典
     private Genre genre;
 
-    // 零注解：Integer → QUANTITY（数值范围）
+    // 零注解：Integer → RANGE（数值范围）
     private Integer price;
 
     // 显式声明：精确匹配，不允许模糊搜索
-    @FiltroField(intent = QueryIntent.EXACT)
+    @Filtro(intent = QueryIntent.EXACT)
     private String isbn;
 
     // 减法模式：SEARCH 里只留 CONTAINS
-    @FiltroField(value = "作者",
+    @Filtro(value = "作者",
             operators = {FiltroOperator.CONTAINS})
     private List<String> authors;
 
-    // DATETIME 自动推断，无需声明
+    // RANGE 自动推断，无需声明
     private LocalDate publishDate;
 
     // 分组隔离：仅 SysAdmin 角色可用
-    @FiltroField(value = "ISBN", groups = {SysAdmin.class})
+    @Filtro(value = "ISBN", groups = {SysAdmin.class})
     private String adminIsbn;
 }
 ```
 
-> `email` 字段？String → SEARCH → 前端搜索输入框，自动带 PREFIX / SUFFIX / CONTAINS 等全套模糊操作符。
+> `email` 字段？String → SEARCH → 前端搜索输入框，默认 CONTAINS / NOT_CONTAINS。
 
 ### 5. 控制器
 
@@ -102,14 +102,14 @@ public class Book {
 // MyBatis-Plus:
 @GetMapping
 public Page<Book> pageBooks(
-        @Filtro(Book.class) QueryWrapper<Book> wrapper,
+        @FiltroQuery(Book.class) QueryWrapper<Book> wrapper,
         PageRequest page) {
     return bookService.page(page, wrapper);
 }
 
 // Meilisearch
 @GetMapping
-public SearchResult searchBooks(@Filtro(Book.class) MeilisearchFilter filter) {
+public SearchResult searchBooks(@FiltroQuery(Book.class) MeilisearchFilter filter) {
     SearchRequest request = new SearchRequest("");
     if (filter != null && !filter.isEmpty()) {
         request.setFilter(new String[]{filter.expression()});
@@ -138,26 +138,23 @@ GET /api/book:filtro
 
 ## 查询意图与默认操作符
 
-| QueryIntent | Java 推断源 | 默认操作符 | 前端控件 |
-|-------------|------------|-----------|---------|
-| `SEARCH` | `String`（fallback） | `==`, `!=`, `=nullable-neq=`, `=in=`, `=out=`, `=prefix=`, `=suffix=`, `=contains=`, `=null=`, `=nonull=` | 搜索输入框 |
-| `EXACT` | 显式声明 | `==`, `!=`, `=nullable-neq=`, `=in=`, `=out=`, `=null=`, `=nonull=` | 精确输入框 |
-| `CATEGORY` | `Enum`（自动） | `==`, `!=`, `=nullable-neq=`, `=in=`, `=out=`, `=null=`, `=nonull=` | 多选下拉 |
-| `QUANTITY` | `Long`, `Integer`, `Short` | 全量数值 + `=null=`, `=nonull=` | min–max |
-| `MEASURE` | `Float`, `Double` | 范围比较（无 `==`/`!=`）+ `=null=`, `=nonull=` | min–max |
-| `AMOUNT` | `BigDecimal`, `Decimal128` | 全量数值 + `=null=`, `=nonull=` | min–max |
-| `DATETIME` | `java.time.*` | 全量比较 + `=null=`, `=nonull=` | 日期范围 |
-| `BOOLEAN` | `boolean`, `Boolean` | `==`, `!=`, `=null=`, `=nonull=` | 开关/三态 |
+| QueryIntent | Java 推断源 | 默认操作符 | 典型 `component` |
+|-------------|------------|-----------|------------------|
+| `SEARCH` | `String`（fallback） | `=contains=`, `=nocontains=`, `=null=`, `=nonull=` | `TEXT` |
+| `EXACT` | `Boolean` / `Enum`；或显式声明（如 SKU） | `==`, `!=`, `=nullableneq=`, `=in=`, `=out=`, `=null=`, `=nonull=`（Boolean 无 IN） | `CHECKBOX` / `SELECT` / `TEXT` |
+| `RANGE` | 数值、`BigDecimal`、日期时间 | `>` / `>=` / `<` / `<=`（+ ALT）+ `=null=` / `=nonull=`；整型/`BigDecimal`/日期额外带 `==`/`!=`/`=nullableneq=`；`Float`/`Double` 默认无 EQ | `NUMBER` / `DATE` / `DATETIME` |
+
+`IN` / `NOT_IN` 归属 **EXACT**（离散精确匹配），不在 RANGE 默认集中。
 
 ### 覆盖默认操作符（减法模式）
 
 ```java
-// SEARCH 默认全量模糊操作符 → 只留 CONTAINS
-@FiltroField(operators = {FiltroOperator.CONTAINS})
+// SEARCH 默认模糊操作符 → 只留 CONTAINS
+@Filtro(operators = {FiltroOperator.CONTAINS})
 private String email;
 ```
 
-`operators` 会与 Intent 的默认集合做交集（`retainAll`），自动过滤无效操作符，并补全 ALT 形式（如声明了 `LT` 则自动带 `ALT_LT`）。
+`operators` 会与 Intent（及 Java 类型微调后）的默认集合做交集（`retainAll`），自动过滤无效操作符，并补全 ALT 形式（如声明了 `LT` 则自动带 `ALT_LT`）。
 
 ---
 
@@ -182,23 +179,22 @@ private String email;
 |--------|------|------|------|
 | 为空 | `=null=` | | 字段为 NULL |
 | 非空 | `=nonull=` | | 字段非 NULL |
-| nullable 不等 | `=nullable-neq=` | | `field != ? OR field IS NULL` |
-| 前缀匹配 | `=prefix=` | | 字符串前缀 |
-| 后缀匹配 | `=suffix=` | | 字符串后缀（Meilisearch 后端不支持） |
+| nullable 不等 | `=nullableneq=` | | `field != ? OR field IS NULL` |
 | 包含 | `=contains=` | | 字符串包含/模糊匹配 |
+| 不包含 | `=nocontains=` | | 字符串不包含 |
 
 ---
 
 ## 注解说明
 
-### `@Filtro`
+### `@FiltroQuery`（控制器参数）
 
 | 属性 | 类型 | 说明 |
 |------|------|------|
 | `value()` | `Class<?>` | 查询实体类型 |
 | `group()` | `Class<?>` | 分组，默认 `void.class`（匹配无分组字段） |
 
-### `@FiltroField`
+### `@Filtro`（实体字段）
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
@@ -208,7 +204,6 @@ private String email;
 | `key()` | `String` | `""` | 数据库列名，默认驼峰转下划线 |
 | `intent()` | `QueryIntent` | `AUTO` | 查询意图，AUTO 时根据 Java 类型推断 |
 | `operators()` | `FiltroOperator[]` | `{}` | 操作符白名单，在 Intent 默认集中做减法 |
-| `maxInSize()` | `int` | `0` | IN/NOT_IN 参数上限，0 不限制 |
 | `groups()` | `Class<?>[]` | `{}` | 适用分组 |
 
 ---
@@ -242,16 +237,18 @@ filtro:
   {
     "field": "title",
     "queryIntent": "SEARCH",
-    "supportedOperations": ["CONTAINS", "PREFIX", "EQ", "SUFFIX", "NEQ", "NULLABLE_NEQ", "IN", "NOT_IN", "IS_NULL", "NOT_NULL"],
-    "label": "书名",
+    "component": "TEXT",
+    "supportedOperations": ["CONTAINS", "NOT_CONTAINS", "IS_NULL", "NOT_NULL"],
+    "description": "书名",
     "tooltip": null,
     "dictionary": null
   },
   {
     "field": "catalog",
-    "queryIntent": "CATEGORY",
+    "queryIntent": "EXACT",
+    "component": "SELECT",
     "supportedOperations": ["EQ", "NEQ", "NULLABLE_NEQ", "IN", "NOT_IN", "IS_NULL", "NOT_NULL"],
-    "label": "上架类目",
+    "description": "上架类目",
     "tooltip": null,
     "dictionary": {
       "小说": "FICTION",
@@ -263,7 +260,7 @@ filtro:
 ]
 ```
 
-前端可根据 `queryIntent` 值直接选择控件——无需额外的元数据字段。
+前端可根据 `component` 选择控件，再结合 `queryIntent` / `supportedOperations` / `dictionary` 决定单选或多选、是否区间。
 
 ---
 

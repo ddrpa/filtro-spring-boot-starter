@@ -25,10 +25,9 @@ class FiltroQueryOperatorTest {
             "=out=, NOT_IN",
             "=null=, IS_NULL",
             "=nonull=, NOT_NULL",
-            "=nullable-neq=, NULLABLE_NEQ",
-            "=prefix=, PREFIX",
-            "=suffix=, SUFFIX",
+            "=nullableneq=, NULLABLE_NEQ",
             "=contains=, CONTAINS",
+            "=nocontains=, NOT_CONTAINS",
     })
     void shouldParseAllKnownSymbols(String symbol, FiltroOperator expected) {
         assertThat(FiltroOperator.of(symbol)).isEqualTo(expected);
@@ -68,9 +67,8 @@ class FiltroQueryOperatorTest {
         assertThat(FiltroOperator.GT.isRsqlOriginal()).isTrue();
         assertThat(FiltroOperator.IN.isRsqlOriginal()).isTrue();
 
-        assertThat(FiltroOperator.IS_NULL.isRsqlOriginal()).isFalse();
-        assertThat(FiltroOperator.PREFIX.isRsqlOriginal()).isFalse();
         assertThat(FiltroOperator.CONTAINS.isRsqlOriginal()).isFalse();
+        assertThat(FiltroOperator.NOT_CONTAINS.isRsqlOriginal()).isFalse();
     }
 
     @Test
@@ -80,7 +78,7 @@ class FiltroQueryOperatorTest {
 
         assertThat(FiltroOperator.EQ.isMultiValue()).isFalse();
         assertThat(FiltroOperator.GT.isMultiValue()).isFalse();
-        assertThat(FiltroOperator.IS_NULL.isMultiValue()).isFalse();
         assertThat(FiltroOperator.CONTAINS.isMultiValue()).isFalse();
+        assertThat(FiltroOperator.NOT_CONTAINS.isMultiValue()).isFalse();
     }
 }

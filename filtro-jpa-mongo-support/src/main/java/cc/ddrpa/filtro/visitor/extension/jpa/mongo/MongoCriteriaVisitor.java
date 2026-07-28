@@ -78,10 +78,8 @@ public class MongoCriteriaVisitor extends AbstractRSQLVisitor<Criteria>
             case LTE, ALT_LTE -> Criteria.where(filtroFieldMeta.getKey()).lte(cast(filtroFieldMeta, arguments.get(0)));
             case IN -> Criteria.where(filtroFieldMeta.getKey()).in(cast(filtroFieldMeta, arguments));
             case NOT_IN -> Criteria.where(filtroFieldMeta.getKey()).nin(cast(filtroFieldMeta, arguments));
-
-            case PREFIX -> Criteria.where(filtroFieldMeta.getKey()).regex('^' + Pattern.quote(arguments.get(0)));
-            case SUFFIX -> Criteria.where(filtroFieldMeta.getKey()).regex(Pattern.quote(arguments.get(0)) + '$');
             case CONTAINS -> Criteria.where(filtroFieldMeta.getKey()).regex(Pattern.quote(arguments.get(0)));
+            case NOT_CONTAINS -> Criteria.where(filtroFieldMeta.getKey()).not().regex(Pattern.quote(arguments.get(0)));
             case IS_NULL -> new Criteria().orOperator(
                     Criteria.where(filtroFieldMeta.getKey()).is(null),
                     Criteria.where(filtroFieldMeta.getKey()).exists(false)
@@ -107,16 +105,33 @@ public class MongoCriteriaVisitor extends AbstractRSQLVisitor<Criteria>
     }
 
     private Function<String, Object> casterFor(FiltroFieldMeta filtroFieldMeta) {
-        return switch (filtroFieldMeta.getQueryIntent()) {
-            case QUANTITY -> wrap(Long::parseLong, filtroFieldMeta, "QUANTITY");
-            case MEASURE -> wrap(Double::parseDouble, filtroFieldMeta, "MEASURE");
-            case AMOUNT -> wrap(Decimal128::parse, filtroFieldMeta, "AMOUNT");
-            case BOOLEAN -> wrap(Boolean::parseBoolean, filtroFieldMeta, "BOOLEAN");
-            case SEARCH, EXACT, CATEGORY -> a -> a;
-            case DATETIME -> wrap(this::parseDateTime, filtroFieldMeta, "DATETIME");
-            default -> throw new IllegalArgumentException("QueryIntent " + filtroFieldMeta.getQueryIntent()
-                    + " is not supported in " + this.getClass().getSimpleName());
-        };
+        Class<?> type = filtroFieldMeta.getJavaType();
+        if (type == null) {
+            throw new IllegalArgumentException("FiltroFieldMeta.javaType is required for Mongo casting: "
+                    + filtroFieldMeta.getField());
+        }
+        if (Integer.class.equals(type) || int.class.equals(type)
+                || Long.class.equals(type) || long.class.equals(type)
+                || Short.class.equals(type) || short.class.equals(type)) {
+            return wrap(Long::parseLong, filtroFieldMeta, "INT");
+        }
+        if (Float.class.equals(type) || float.class.equals(type)
+                || Double.class.equals(type) || double.class.equals(type)) {
+            return wrap(Double::parseDouble, filtroFieldMeta, "FLOAT");
+        }
+        if (java.math.BigDecimal.class.equals(type) || Decimal128.class.equals(type)
+                || "org.bson.types.Decimal128".equals(type.getName())) {
+            return wrap(Decimal128::parse, filtroFieldMeta, "DECIMAL");
+        }
+        if (Boolean.class.equals(type) || boolean.class.equals(type)) {
+            return wrap(Boolean::parseBoolean, filtroFieldMeta, "BOOLEAN");
+        }
+        if (LocalDate.class.equals(type) || LocalDateTime.class.equals(type)
+                || Instant.class.equals(type) || LocalTime.class.equals(type)
+                || Date.class.equals(type)) {
+            return wrap(this::parseDateTime, filtroFieldMeta, "DATETIME");
+        }
+        return a -> a;
     }
 
     /**

@@ -28,11 +28,13 @@ class MongoCriteriaVisitorTest {
     private Map<String, FiltroFieldMeta> fieldMap;
     private RSQLParser parser;
 
-    private static FiltroFieldMeta meta(String field, String key, QueryIntent intent, Set<FiltroOperator> ops) {
+    private static FiltroFieldMeta meta(String field, String key, QueryIntent intent,
+                                        Class<?> javaType, Set<FiltroOperator> ops) {
         FiltroFieldMeta m = new FiltroFieldMeta();
         m.setField(field);
         m.setKey(key);
         m.setQueryIntent(intent);
+        m.setJavaType(javaType);
         m.setSupportedOperations(ops);
         return m;
     }
@@ -40,16 +42,17 @@ class MongoCriteriaVisitorTest {
     @BeforeEach
     void setUp() {
         fieldMap = Map.of(
-                "title", meta("title", "title", QueryIntent.SEARCH,
-                        Set.of(FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.NULLABLE_NEQ,
-                                FiltroOperator.CONTAINS, FiltroOperator.PREFIX, FiltroOperator.SUFFIX,
-                                FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL)),
-                "price", meta("price", "price", QueryIntent.QUANTITY,
+                "title", meta("title", "title", QueryIntent.SEARCH, String.class,
+                        Set.of(FiltroOperator.EQ, FiltroOperator.NEQ,
+                                FiltroOperator.CONTAINS, FiltroOperator.NOT_CONTAINS,
+                                FiltroOperator.IS_NULL, FiltroOperator.NOT_NULL,
+                                FiltroOperator.NULLABLE_NEQ)),
+                "price", meta("price", "price", QueryIntent.RANGE, Integer.class,
                         Set.of(FiltroOperator.EQ, FiltroOperator.GT, FiltroOperator.ALT_GT,
                                 FiltroOperator.LT, FiltroOperator.ALT_LT, FiltroOperator.IN)),
-                "createdAt", meta("createdAt", "createdAt", QueryIntent.DATETIME,
+                "createdAt", meta("createdAt", "createdAt", QueryIntent.RANGE, java.time.LocalDateTime.class,
                         Set.of(FiltroOperator.EQ, FiltroOperator.GT, FiltroOperator.LT)),
-                "amount", meta("amount", "amount", QueryIntent.AMOUNT,
+                "amount", meta("amount", "amount", QueryIntent.RANGE, java.math.BigDecimal.class,
                         Set.of(FiltroOperator.EQ, FiltroOperator.GT, FiltroOperator.LT))
         );
         // Build parser with FiltroQuery extension operators
@@ -121,17 +124,10 @@ class MongoCriteriaVisitorTest {
         }
 
         @Test
-        void prefixGeneratesStartsWithRegex() {
-            Criteria c = parse("title=prefix=java");
+        void notContainsGeneratesNotRegex() {
+            Criteria c = parse("title=nocontains=java");
             Document doc = criteriaDoc(c);
-            assertThat(doc.toJson()).contains("$regularExpression");
-        }
-
-        @Test
-        void suffixGeneratesEndsWithRegex() {
-            Criteria c = parse("title=suffix=java");
-            Document doc = criteriaDoc(c);
-            assertThat(doc.toJson()).contains("$regularExpression");
+            assertThat(doc.toJson()).contains("$not");
         }
 
         @Test

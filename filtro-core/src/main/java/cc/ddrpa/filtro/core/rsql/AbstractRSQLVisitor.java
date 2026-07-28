@@ -2,10 +2,8 @@ package cc.ddrpa.filtro.core.rsql;
 
 import cc.ddrpa.filtro.core.field.FiltroFieldMeta;
 import cc.ddrpa.filtro.core.field.FiltroOperator;
-import cz.jirutka.rsql.parser.ast.AndNode;
 import cz.jirutka.rsql.parser.ast.ComparisonNode;
 import cz.jirutka.rsql.parser.ast.Node;
-import cz.jirutka.rsql.parser.ast.OrNode;
 
 import java.util.List;
 import java.util.Map;
@@ -43,15 +41,9 @@ public abstract class AbstractRSQLVisitor<T> {
     }
 
     private int computeDepth(Node node, int currentDepth) {
-        if (node instanceof AndNode andNode) {
+        if (node instanceof cz.jirutka.rsql.parser.ast.LogicalNode logicalNode) {
             int maxChild = currentDepth + 1;
-            for (Node child : andNode.getChildren()) {
-                maxChild = Math.max(maxChild, computeDepth(child, currentDepth + 1));
-            }
-            return maxChild;
-        } else if (node instanceof OrNode orNode) {
-            int maxChild = currentDepth + 1;
-            for (Node child : orNode.getChildren()) {
+            for (Node child : logicalNode.getChildren()) {
                 maxChild = Math.max(maxChild, computeDepth(child, currentDepth + 1));
             }
             return maxChild;
@@ -79,15 +71,6 @@ public abstract class AbstractRSQLVisitor<T> {
         }
 
         List<String> arguments = node.getArguments();
-
-        // IN / NOT_IN 参数数量上限校验
-        if ((operator == FiltroOperator.IN || operator == FiltroOperator.NOT_IN) && meta.getMaxInSize() > 0) {
-            if (arguments.size() > meta.getMaxInSize()) {
-                throw new IllegalArgumentException(
-                        "IN/NOT_IN argument count " + arguments.size()
-                                + " exceeds maximum " + meta.getMaxInSize() + " for field " + claimedField);
-            }
-        }
 
         return new ResolvedComparison(meta, operator, arguments);
     }

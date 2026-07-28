@@ -88,7 +88,7 @@ public class MybatisPlusQueryWrapperVisitor extends AbstractRSQLVisitor<QueryWra
         ResolvedComparison resolved = resolve(node);
         FiltroOperator claimedFiltroOperator = resolved.operator();
         FiltroFieldMeta filtroFieldMeta = resolved.meta();
-        List arguments = resolved.arguments();
+        List<?> arguments = resolved.arguments();
 
         if (filtroFieldMeta.isEnumeration()) {
             arguments = arguments.stream()
@@ -107,10 +107,8 @@ public class MybatisPlusQueryWrapperVisitor extends AbstractRSQLVisitor<QueryWra
             case LTE, ALT_LTE -> param.le(filtroFieldMeta.getKey(), firstArgument);
             case IN -> param.in(filtroFieldMeta.getKey(), arguments);
             case NOT_IN -> param.notIn(filtroFieldMeta.getKey(), arguments);
-
-            case PREFIX -> param.likeRight(filtroFieldMeta.getKey(), escapeLike((String) firstArgument));
-            case SUFFIX -> param.likeLeft(filtroFieldMeta.getKey(), escapeLike((String) firstArgument));
             case CONTAINS -> param.like(filtroFieldMeta.getKey(), escapeLike((String) firstArgument));
+            case NOT_CONTAINS -> param.notLike(filtroFieldMeta.getKey(), escapeLike((String) firstArgument));
             case IS_NULL -> param.isNull(filtroFieldMeta.getKey());
             case NOT_NULL -> param.isNotNull(filtroFieldMeta.getKey());
             default -> throw new IllegalArgumentException("FiltroOperator " + claimedFiltroOperator.getSymbol()

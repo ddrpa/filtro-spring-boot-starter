@@ -40,14 +40,9 @@ public @interface Filtro {
     QueryIntent intent() default QueryIntent.AUTO;
 
     /**
-     * 支持的操作符列表，若不声明，则由系统根据字段类型自动推断
+     * QueryIntent 决定了支持的操作符列表，而 operators 收窄这个范围
      */
     FiltroOperator[] operators() default {};
-
-    /**
-     * IN / NOT_IN 参数数量上限，0 表示不限制。默认 0。
-     */
-    int maxInSize() default 0;
 
     /**
      * 适用分组，参考 Jakarta Bean Validation 的 group 概念

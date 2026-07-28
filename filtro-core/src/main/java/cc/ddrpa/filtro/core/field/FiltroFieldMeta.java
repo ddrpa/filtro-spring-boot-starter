@@ -16,6 +16,9 @@ public class FiltroFieldMeta {
     // 查询意图
     private QueryIntent queryIntent;
 
+    // Java 字段类型（用于值转型与控件提示）
+    private Class<?> javaType;
+
     // 支持的操作符
     private Set<FiltroOperator> supportedOperations;
 
@@ -30,11 +33,6 @@ public class FiltroFieldMeta {
     private Map<String, String> enumerationDictionary;
 
     /**
-     * IN / NOT_IN 参数数量上限，0 表示不限制
-     */
-    private int maxInSize = 0;
-
-    /**
      * 适用分组列表
      */
     private Set<Class<?>> groups;
@@ -43,7 +41,7 @@ public class FiltroFieldMeta {
      * 判断是否为枚举类型
      */
     public boolean isEnumeration() {
-        return QueryIntent.CATEGORY.equals(queryIntent);
+        return enumerationClass != null;
     }
 
     public String getField() {
@@ -70,6 +68,15 @@ public class FiltroFieldMeta {
 
     public FiltroFieldMeta setQueryIntent(QueryIntent queryIntent) {
         this.queryIntent = queryIntent;
+        return this;
+    }
+
+    public Class<?> getJavaType() {
+        return javaType;
+    }
+
+    public FiltroFieldMeta setJavaType(Class<?> javaType) {
+        this.javaType = javaType;
         return this;
     }
 
@@ -124,15 +131,6 @@ public class FiltroFieldMeta {
 
     public FiltroFieldMeta setGroups(Set<Class<?>> groups) {
         this.groups = groups;
-        return this;
-    }
-
-    public int getMaxInSize() {
-        return maxInSize;
-    }
-
-    public FiltroFieldMeta setMaxInSize(int maxInSize) {
-        this.maxInSize = maxInSize;
         return this;
     }
 }

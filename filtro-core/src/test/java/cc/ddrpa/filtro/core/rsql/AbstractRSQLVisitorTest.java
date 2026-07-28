@@ -31,7 +31,6 @@ class AbstractRSQLVisitorTest {
         m.setField(field);
         m.setQueryIntent(QueryIntent.SEARCH);
         m.setSupportedOperations(Set.of(ops));
-        m.setMaxInSize(0);
         return m;
     }
 
@@ -43,7 +42,6 @@ class AbstractRSQLVisitorTest {
                         FiltroOperator.ALT_GT, FiltroOperator.ALT_LT),
                 "tags", meta("tags", FiltroOperator.IN, FiltroOperator.NOT_IN)
         );
-        fieldMap.get("tags").setMaxInSize(5);
 
         // Build parser with compatible FiltroQuery extension operators
         Set<ComparisonOperator> operators = new HashSet<>(RSQLOperators.defaultOperators());
@@ -112,36 +110,10 @@ class AbstractRSQLVisitorTest {
         }
 
         @Test
-        void inExceedsMaxInSizeThrows() {
+        void inAllowsMultipleArguments() {
             TestVisitor v = new TestVisitor(fieldMap);
-            assertThatThrownBy(() -> v.resolve(cmp("tags=in=(a,b,c,d,e,f)")))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("IN/NOT_IN argument count");
-        }
-
-        @Test
-        void inWithinMaxInSizeSucceeds() {
-            TestVisitor v = new TestVisitor(fieldMap);
-            AbstractRSQLVisitor.ResolvedComparison resolved = v.resolve(cmp("tags=in=(a,b,c,d,e)"));
-            assertThat(resolved.arguments()).hasSize(5);
-        }
-
-        @Test
-        void maxInSizeZeroMeansUnlimited() {
-            // title has maxInSize=0 (unlimited)
-            TestVisitor v = new TestVisitor(fieldMap);
-            AbstractRSQLVisitor.ResolvedComparison resolved = v.resolve(cmp("title=in=(a,b,c,d,e,f,g,h)"));
-            assertThat(resolved.arguments()).hasSize(8);
-        }
-
-        @Test
-        void isNullNeedsNoArguments() {
-            // need a field with IS_NULL support; RSQL parser requires =null='' syntax
-            FiltroFieldMeta nullableMeta = meta("nullableField", FiltroOperator.IS_NULL);
-            Map<String, FiltroFieldMeta> map = Map.of("nullableField", nullableMeta);
-            TestVisitor v2 = new TestVisitor(map);
-            assertThat(v2.resolve(cmp("nullableField=null=''")).operator())
-                    .isEqualTo(FiltroOperator.IS_NULL);
+            AbstractRSQLVisitor.ResolvedComparison resolved = v.resolve(cmp("tags=in=(a,b,c,d,e,f)"));
+            assertThat(resolved.arguments()).hasSize(6);
         }
     }
 
