@@ -24,6 +24,26 @@ public class MeilisearchFilterVisitor extends AbstractRSQLVisitor<String>
         super(fieldSpecMap, maxDepth);
     }
 
+    private static String condition(String attr, String op, String value) {
+        return attr + " " + op + " " + value;
+    }
+
+    private static String quote(String value) {
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
+    private static String toEnumName(Class<?> clazz, String name) {
+        if (clazz == null || name == null) {
+            throw new IllegalArgumentException("Enum class and name must not be null");
+        }
+        if (!clazz.isEnum()) {
+            throw new IllegalArgumentException(clazz + " is not an enum type");
+        }
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        Enum<?> constant = Enum.valueOf((Class<? extends Enum>) clazz, name);
+        return constant.name();
+    }
+
     public String apply(Node rootNode) {
         validateDepth(rootNode);
         return rootNode.accept(this);
@@ -81,10 +101,6 @@ public class MeilisearchFilterVisitor extends AbstractRSQLVisitor<String>
         };
     }
 
-    private static String condition(String attr, String op, String value) {
-        return attr + " " + op + " " + value;
-    }
-
     private String formatList(FiltroFieldMeta meta, List<String> arguments) {
         return arguments.stream()
                 .map(a -> formatValue(meta, a))
@@ -125,21 +141,5 @@ public class MeilisearchFilterVisitor extends AbstractRSQLVisitor<String>
                     "QueryIntent " + meta.getQueryIntent()
                             + " is not supported in " + this.getClass().getSimpleName());
         };
-    }
-
-    private static String quote(String value) {
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-    }
-
-    private static String toEnumName(Class<?> clazz, String name) {
-        if (clazz == null || name == null) {
-            throw new IllegalArgumentException("Enum class and name must not be null");
-        }
-        if (!clazz.isEnum()) {
-            throw new IllegalArgumentException(clazz + " is not an enum type");
-        }
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        Enum<?> constant = Enum.valueOf((Class<? extends Enum>) clazz, name);
-        return constant.name();
     }
 }

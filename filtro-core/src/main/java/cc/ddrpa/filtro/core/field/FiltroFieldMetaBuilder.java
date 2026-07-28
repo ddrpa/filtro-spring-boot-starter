@@ -1,6 +1,6 @@
 package cc.ddrpa.filtro.core.field;
 
-import cc.ddrpa.filtro.core.annotation.FiltroField;
+import cc.ddrpa.filtro.core.annotation.Filtro;
 import org.apache.commons.lang3.StringUtils;
 
 import java.lang.reflect.Field;
@@ -74,12 +74,12 @@ public class FiltroFieldMetaBuilder {
     // ──────────── 实例字段 ────────────
 
     private final Field field;
-    private final FiltroField filtroFieldAnnotation;
+    private final Filtro filtroAnnotation;
     private Set<FiltroOperator> claimedFiltroOperators = Collections.emptySet();
 
-    public FiltroFieldMetaBuilder(Field field, FiltroField filtroFieldAnnotation) {
+    public FiltroFieldMetaBuilder(Field field, Filtro filtroAnnotation) {
         this.field = field;
-        this.filtroFieldAnnotation = filtroFieldAnnotation;
+        this.filtroAnnotation = filtroAnnotation;
     }
 
     // ──────────── 类型推断 ────────────
@@ -160,9 +160,9 @@ public class FiltroFieldMetaBuilder {
      * 构建字段元数据对象。
      */
     public FiltroFieldMeta build() {
-        String claimedFieldName = this.filtroFieldAnnotation.field();
-        String claimedKeyPath = this.filtroFieldAnnotation.key();
-        QueryIntent claimedIntent = this.filtroFieldAnnotation.intent();
+        String claimedFieldName = this.filtroAnnotation.field();
+        String claimedKeyPath = this.filtroAnnotation.key();
+        QueryIntent claimedIntent = this.filtroAnnotation.intent();
 
         QueryIntent queryIntent = (claimedIntent == null || claimedIntent == QueryIntent.AUTO)
                 ? inferIntent(this.field.getType())
@@ -173,15 +173,16 @@ public class FiltroFieldMetaBuilder {
                 .setKey(StringUtils.isNotBlank(claimedKeyPath) ? claimedKeyPath
                         : this.field.getName().replaceAll("([a-z])([A-Z]+)", "$1_$2").toLowerCase())
                 .setQueryIntent(queryIntent)
-                .setDescription(this.filtroFieldAnnotation.value());
+                .setLabel(this.filtroAnnotation.value())
+                .setTooltip(this.filtroAnnotation.tooltip());
 
-        if (this.filtroFieldAnnotation.groups().length < 1) {
+        if (this.filtroAnnotation.groups().length < 1) {
             filtroFieldMeta.setGroups(Collections.emptySet());
         } else {
-            filtroFieldMeta.setGroups(Arrays.stream(this.filtroFieldAnnotation.groups()).collect(Collectors.toSet()));
+            filtroFieldMeta.setGroups(Arrays.stream(this.filtroAnnotation.groups()).collect(Collectors.toSet()));
         }
 
-        filtroFieldMeta.setMaxInSize(this.filtroFieldAnnotation.maxInSize());
+        filtroFieldMeta.setMaxInSize(this.filtroAnnotation.maxInSize());
 
         // intent 提供默认操作符集，operators 做减法
         Set<FiltroOperator> fullSet = operatorsFor(queryIntent);

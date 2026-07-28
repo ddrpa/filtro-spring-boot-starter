@@ -113,9 +113,8 @@ public class MybatisPlusQueryWrapperVisitor extends AbstractRSQLVisitor<QueryWra
             case CONTAINS -> param.like(filtroFieldMeta.getKey(), escapeLike((String) firstArgument));
             case IS_NULL -> param.isNull(filtroFieldMeta.getKey());
             case NOT_NULL -> param.isNotNull(filtroFieldMeta.getKey());
-            default ->
-                    throw new IllegalArgumentException("FiltroOperator " + claimedFiltroOperator.getSymbol()
-                            + " is not supported in " + this.getClass().getSimpleName());
+            default -> throw new IllegalArgumentException("FiltroOperator " + claimedFiltroOperator.getSymbol()
+                    + " is not supported in " + this.getClass().getSimpleName());
         }
         return param;
     }

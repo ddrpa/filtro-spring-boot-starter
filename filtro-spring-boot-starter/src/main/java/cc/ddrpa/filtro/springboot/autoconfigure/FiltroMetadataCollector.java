@@ -2,14 +2,14 @@ package cc.ddrpa.filtro.springboot.autoconfigure;
 
 import cc.ddrpa.filtro.core.FiltroRegistry;
 import cc.ddrpa.filtro.core.annotation.Filtro;
-import cc.ddrpa.filtro.core.annotation.FiltroField;
+import cc.ddrpa.filtro.core.annotation.FiltroQuery;
 import cc.ddrpa.filtro.core.field.FiltroFieldMeta;
 import cc.ddrpa.filtro.core.field.FiltroFieldMetaBuilder;
 import cc.ddrpa.filtro.springboot.FiltroFieldMetaVO;
 import cc.ddrpa.filtro.springboot.properties.FiltroProperties;
-import jakarta.servlet.http.HttpServletRequest;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ScanResult;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -54,10 +54,10 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
     public void afterSingletonsInstantiated() {
         String[] packages = filtroProperties.getControllerPackages();
         if (packages.length == 0) {
-            logger.info("No controller packages configured for Filtro scanning; skipping metadata collection");
+            logger.info("No controller packages configured for FiltroQuery scanning; skipping metadata collection");
             return;
         }
-        logger.info("Filtro scanning controllers in packages: {}", (Object) packages);
+        logger.info("FiltroQuery scanning controllers in packages: {}", (Object) packages);
         try (ScanResult scanResult = new ClassGraph()
                 .enableAnnotationInfo()
                 .acceptPackages(packages)
@@ -69,12 +69,12 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
                 processControllerClass(controllerClazz);
             }
         }
-        logger.info("Filtro scanning complete — {} entity types registered, {} metadata endpoints",
+        logger.info("FiltroQuery scanning complete — {} entity types registered, {} metadata endpoints",
                 filtroRegistry.registeredTypeCount(), metadataEndpoint2TypeAndGroup.size());
     }
 
     /**
-     * Filtro 元信息 endpoint 处理方法
+     * FiltroQuery 元信息 endpoint 处理方法
      *
      * @param request
      * @param ignoredPathVars
@@ -169,12 +169,12 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
     private void processMethod(Method method) {
         boolean metadataEndpointRegistered = false;
         for (Parameter parameter : method.getParameters()) {
-            if (!parameter.isAnnotationPresent(Filtro.class)) {
+            if (!parameter.isAnnotationPresent(FiltroQuery.class)) {
                 continue;
             }
-            Filtro filtroAnno = parameter.getAnnotation(Filtro.class);
-            Class<?> criteriaType = filtroAnno.value();
-            Class<?> metadataGroup = filtroAnno.group();
+            FiltroQuery filtroQueryAnno = parameter.getAnnotation(FiltroQuery.class);
+            Class<?> criteriaType = filtroQueryAnno.value();
+            Class<?> metadataGroup = filtroQueryAnno.group();
             // 元数据端点每个方法只注册一次
             if (!metadataEndpointRegistered && filtroProperties.isEnableMetadataEndpoint()) {
                 try {
@@ -183,17 +183,17 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
                             metadataEndpoint2TypeAndGroup.put(s, ImmutablePair.of(criteriaType, metadataGroup)));
                     metadataEndpointRegistered = true;
                 } catch (NoSuchMethodException e) {
-                    logger.warn("Failed to register Filtro metadata endpoint for method {}: {}",
+                    logger.warn("Failed to register FiltroQuery metadata endpoint for method {}: {}",
                             method.getName(), e.getMessage());
                 }
             }
             if (filtroRegistry.hasType(criteriaType)) {
-                logger.debug("Filtro entity '{}' already registered, skipping", criteriaType.getSimpleName());
+                logger.debug("FiltroQuery entity '{}' already registered, skipping", criteriaType.getSimpleName());
                 continue;
             }
             List<FiltroFieldMeta> filtroFieldMetas = new ArrayList<>();
             for (Field field : criteriaType.getDeclaredFields()) {
-                FiltroField fieldSpecAnno = field.getAnnotation(FiltroField.class);
+                Filtro fieldSpecAnno = field.getAnnotation(Filtro.class);
                 if (Objects.isNull(fieldSpecAnno)) {
                     continue;
                 }
@@ -205,7 +205,7 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
                 filtroFieldMetas.add(filtroFieldMeta);
             }
             filtroRegistry.register(criteriaType, filtroFieldMetas);
-            logger.info("Filtro registered entity '{}' with {} filterable fields from controller {}",
+            logger.info("FiltroQuery registered entity '{}' with {} filterable fields from controller {}",
                     criteriaType.getSimpleName(), filtroFieldMetas.size(),
                     method.getDeclaringClass().getSimpleName());
         }

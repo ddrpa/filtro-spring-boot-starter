@@ -17,8 +17,11 @@ public class FiltroFieldMetaVO {
     // 支持的操作符
     private Set<FiltroOperator> supportedOperations;
 
-    // 描述说明
+    // 描述说明（展示名）
     private String description;
+
+    // 悬停提示
+    private String tooltip;
 
     // 枚举选项
     private Map<String, String> dictionary;
@@ -28,7 +31,8 @@ public class FiltroFieldMetaVO {
         vo.setField(meta.getField());
         vo.setQueryIntent(meta.getQueryIntent());
         vo.setSupportedOperations(meta.getSupportedOperations());
-        vo.setDescription(meta.getDescription());
+        vo.setDescription(meta.getLabel());
+        vo.setTooltip(meta.getTooltip());
         if (meta.isEnumeration()) {
             vo.setDictionary(meta.getEnumerationDictionary());
         }
@@ -68,6 +72,15 @@ public class FiltroFieldMetaVO {
 
     public FiltroFieldMetaVO setDescription(String description) {
         this.description = description;
+        return this;
+    }
+
+    public String getTooltip() {
+        return tooltip;
+    }
+
+    public FiltroFieldMetaVO setTooltip(String tooltip) {
+        this.tooltip = tooltip;
         return this;
     }
 

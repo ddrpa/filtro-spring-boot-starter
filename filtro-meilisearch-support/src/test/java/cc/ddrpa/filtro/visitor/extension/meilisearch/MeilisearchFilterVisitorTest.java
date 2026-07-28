@@ -22,7 +22,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MeilisearchFilterVisitorTest {
 
-    enum Status {ACTIVE, INACTIVE}
+    private Map<String, FiltroFieldMeta> fieldMap;
+    private RSQLParser parser;
 
     private static FiltroFieldMeta meta(String field, String key, QueryIntent intent, Set<FiltroOperator> ops) {
         FiltroFieldMeta m = new FiltroFieldMeta();
@@ -32,9 +33,6 @@ class MeilisearchFilterVisitorTest {
         m.setSupportedOperations(ops);
         return m;
     }
-
-    private Map<String, FiltroFieldMeta> fieldMap;
-    private RSQLParser parser;
 
     @BeforeEach
     void setUp() {
@@ -74,6 +72,8 @@ class MeilisearchFilterVisitorTest {
         Node root = parser.parse(rsql);
         return new MeilisearchFilterVisitor(fieldMap).apply(root);
     }
+
+    enum Status {ACTIVE, INACTIVE}
 
     @Nested
     @DisplayName("基本操作符")

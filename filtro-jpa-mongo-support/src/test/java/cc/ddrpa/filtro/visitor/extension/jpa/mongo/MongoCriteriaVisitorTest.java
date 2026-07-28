@@ -14,13 +14,19 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.mongodb.core.query.Criteria;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MongoCriteriaVisitorTest {
+
+    private Map<String, FiltroFieldMeta> fieldMap;
+    private RSQLParser parser;
 
     private static FiltroFieldMeta meta(String field, String key, QueryIntent intent, Set<FiltroOperator> ops) {
         FiltroFieldMeta m = new FiltroFieldMeta();
@@ -30,9 +36,6 @@ class MongoCriteriaVisitorTest {
         m.setSupportedOperations(ops);
         return m;
     }
-
-    private Map<String, FiltroFieldMeta> fieldMap;
-    private RSQLParser parser;
 
     @BeforeEach
     void setUp() {
@@ -49,7 +52,7 @@ class MongoCriteriaVisitorTest {
                 "amount", meta("amount", "amount", QueryIntent.AMOUNT,
                         Set.of(FiltroOperator.EQ, FiltroOperator.GT, FiltroOperator.LT))
         );
-        // Build parser with Filtro extension operators
+        // Build parser with FiltroQuery extension operators
         Set<ComparisonOperator> operators = new HashSet<>(RSQLOperators.defaultOperators());
         Pattern symbolPattern = Pattern.compile("=[a-zA-Z]*=|[><]=?|!=");
         Arrays.stream(FiltroOperator.values())
@@ -75,61 +78,71 @@ class MongoCriteriaVisitorTest {
     @Nested
     @DisplayName("基本操作符")
     class BasicOperators {
-        @Test void eqGeneratesIs() {
+        @Test
+        void eqGeneratesIs() {
             Criteria c = parse("title==hello");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("title").contains("hello");
         }
 
-        @Test void neqGeneratesNe() {
+        @Test
+        void neqGeneratesNe() {
             Criteria c = parse("title!=hello");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("$ne");
         }
 
-        @Test void gtGeneratesGt() {
+        @Test
+        void gtGeneratesGt() {
             Criteria c = parse("price=gt=100");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("$gt");
         }
 
-        @Test void altGtGeneratesGt() {
+        @Test
+        void altGtGeneratesGt() {
             Criteria c = parse("price>100");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("$gt");
         }
 
-        @Test void ltGeneratesLt() {
+        @Test
+        void ltGeneratesLt() {
             Criteria c = parse("price<50");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("$lt");
         }
 
-        @Test void containsGeneratesRegex() {
+        @Test
+        void containsGeneratesRegex() {
             Criteria c = parse("title=contains=java");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("$regularExpression");
         }
 
-        @Test void prefixGeneratesStartsWithRegex() {
+        @Test
+        void prefixGeneratesStartsWithRegex() {
             Criteria c = parse("title=prefix=java");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("$regularExpression");
         }
 
-        @Test void suffixGeneratesEndsWithRegex() {
+        @Test
+        void suffixGeneratesEndsWithRegex() {
             Criteria c = parse("title=suffix=java");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("$regularExpression");
         }
 
-        @Test void isNullGeneratesOrIsNullAndNotExists() {
+        @Test
+        void isNullGeneratesOrIsNullAndNotExists() {
             Criteria c = parse("title=null=''");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("$or");
         }
 
-        @Test void notNullGeneratesExistsTrue() {
+        @Test
+        void notNullGeneratesExistsTrue() {
             Criteria c = parse("title=nonull=''");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("$exists");
@@ -139,25 +152,29 @@ class MongoCriteriaVisitorTest {
     @Nested
     @DisplayName("类型转换")
     class TypeConversion {
-        @Test void quantityFieldParsedAsLong() {
+        @Test
+        void quantityFieldParsedAsLong() {
             Criteria c = parse("price==100");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("price").contains("100");
         }
 
-        @Test void amountFieldParsedAsDecimal128() {
+        @Test
+        void amountFieldParsedAsDecimal128() {
             Criteria c = parse("amount==99.99");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("amount").contains("99.99");
         }
 
-        @Test void datetimeFieldParsedAsDate() {
+        @Test
+        void datetimeFieldParsedAsDate() {
             Criteria c = parse("createdAt==2024-01-15T00:00:00Z");
             Document doc = criteriaDoc(c);
             assertThat(doc.toJson()).contains("createdAt");
         }
 
-        @Test void invalidDatetimeThrowsPredicateBuildException() {
+        @Test
+        void invalidDatetimeThrowsPredicateBuildException() {
             assertThatThrownBy(() -> parse("createdAt==not-a-date"))
                     .isInstanceOf(cc.ddrpa.filtro.core.exception.PredicateBuildException.class)
                     .hasMessageContaining("createdAt");
@@ -167,13 +184,15 @@ class MongoCriteriaVisitorTest {
     @Nested
     @DisplayName("校验")
     class Validation {
-        @Test void unknownFieldThrows() {
+        @Test
+        void unknownFieldThrows() {
             assertThatThrownBy(() -> parse("unknown==x"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("not found");
         }
 
-        @Test void unsupportedOperatorThrows() {
+        @Test
+        void unsupportedOperatorThrows() {
             assertThatThrownBy(() -> parse("title=in=(a,b)"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("not supported");

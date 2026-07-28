@@ -20,7 +20,10 @@ public class FiltroFieldMeta {
     private Set<FiltroOperator> supportedOperations;
 
     // 描述说明
-    private String description;
+    private String label;
+
+    // 提示
+    private String tooltip;
 
     // 枚举相关
     private Class<?> enumerationClass;
@@ -79,12 +82,21 @@ public class FiltroFieldMeta {
         return this;
     }
 
-    public String getDescription() {
-        return description;
+    public String getLabel() {
+        return label;
     }
 
-    public FiltroFieldMeta setDescription(String description) {
-        this.description = description;
+    public FiltroFieldMeta setLabel(String label) {
+        this.label = label;
+        return this;
+    }
+
+    public String getTooltip() {
+        return tooltip;
+    }
+
+    public FiltroFieldMeta setTooltip(String tooltip) {
+        this.tooltip = tooltip;
         return this;
     }
 

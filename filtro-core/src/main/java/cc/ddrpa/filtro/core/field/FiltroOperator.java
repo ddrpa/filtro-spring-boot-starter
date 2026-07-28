@@ -40,6 +40,13 @@ public enum FiltroOperator {
         this.multiValue = multiValue;
     }
 
+    public static FiltroOperator of(String symbol) {
+        return Stream.of(FiltroOperator.values())
+                .filter(op -> op.symbol.equalsIgnoreCase(symbol))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown RSQL operator: " + symbol));
+    }
+
     public boolean isRsqlOriginal() {
         return rsqlOriginal;
     }
@@ -50,12 +57,5 @@ public enum FiltroOperator {
 
     public boolean isMultiValue() {
         return multiValue;
-    }
-
-    public static FiltroOperator of(String symbol) {
-        return Stream.of(FiltroOperator.values())
-                .filter(op -> op.symbol.equalsIgnoreCase(symbol))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown RSQL operator: " + symbol));
     }
 }

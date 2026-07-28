@@ -9,16 +9,13 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class FiltroRegistryTest {
+class FiltroQueryRegistryTest {
 
     private FiltroRegistry registry;
-
-    interface AdminRole {}
-    interface SysAdmin extends AdminRole {}
-    interface GuestRole {}
 
     private static FiltroFieldMeta meta(String name, Class<?>... groups) {
         FiltroFieldMeta m = new FiltroFieldMeta();
@@ -42,7 +39,17 @@ class FiltroRegistryTest {
         ));
     }
 
-    static class Book {}
+    interface AdminRole {
+    }
+
+    interface SysAdmin extends AdminRole {
+    }
+
+    interface GuestRole {
+    }
+
+    static class Book {
+    }
 
     @Nested
     class GroupFiltering {

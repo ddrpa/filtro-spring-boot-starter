@@ -203,6 +203,7 @@ private String email;
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `value()` | `String` | `""` | 字段描述，用于元数据文档 |
+| `tooltip()` | `String` | `""` | 悬停提示文案，供前端作为 tooltip 使用 |
 | `field()` | `String` | `""` | RSQL 字段名，默认取属性名 |
 | `key()` | `String` | `""` | 数据库列名，默认驼峰转下划线 |
 | `intent()` | `QueryIntent` | `AUTO` | 查询意图，AUTO 时根据 Java 类型推断 |
@@ -242,14 +243,16 @@ filtro:
     "field": "title",
     "queryIntent": "SEARCH",
     "supportedOperations": ["CONTAINS", "PREFIX", "EQ", "SUFFIX", "NEQ", "NULLABLE_NEQ", "IN", "NOT_IN", "IS_NULL", "NOT_NULL"],
-    "description": "书名",
+    "label": "书名",
+    "tooltip": null,
     "dictionary": null
   },
   {
     "field": "catalog",
     "queryIntent": "CATEGORY",
     "supportedOperations": ["EQ", "NEQ", "NULLABLE_NEQ", "IN", "NOT_IN", "IS_NULL", "NOT_NULL"],
-    "description": "上架类目",
+    "label": "上架类目",
+    "tooltip": null,
     "dictionary": {
       "小说": "FICTION",
       "非小说类 / 实用类": "NON_FICTION",

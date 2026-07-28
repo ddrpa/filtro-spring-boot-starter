@@ -23,6 +23,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AbstractRSQLVisitorTest {
 
+    private Map<String, FiltroFieldMeta> fieldMap;
+    private RSQLParser parser;
+
     private static FiltroFieldMeta meta(String field, FiltroOperator... ops) {
         FiltroFieldMeta m = new FiltroFieldMeta();
         m.setField(field);
@@ -30,6 +33,27 @@ class AbstractRSQLVisitorTest {
         m.setSupportedOperations(Set.of(ops));
         m.setMaxInSize(0);
         return m;
+    }
+
+    @BeforeEach
+    void setUp() {
+        fieldMap = Map.of(
+                "title", meta("title", FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.CONTAINS, FiltroOperator.IN),
+                "price", meta("price", FiltroOperator.EQ, FiltroOperator.GT, FiltroOperator.LT,
+                        FiltroOperator.ALT_GT, FiltroOperator.ALT_LT),
+                "tags", meta("tags", FiltroOperator.IN, FiltroOperator.NOT_IN)
+        );
+        fieldMap.get("tags").setMaxInSize(5);
+
+        // Build parser with compatible FiltroQuery extension operators
+        Set<ComparisonOperator> operators = new HashSet<>(RSQLOperators.defaultOperators());
+        java.util.regex.Pattern symbolPattern = java.util.regex.Pattern.compile("=[a-zA-Z]*=|[><]=?|!=");
+        Arrays.stream(FiltroOperator.values())
+                .filter(op -> !op.isRsqlOriginal())
+                .filter(op -> symbolPattern.matcher(op.getSymbol()).matches())
+                .map(op -> new ComparisonOperator(op.getSymbol(), op.isMultiValue()))
+                .forEach(operators::add);
+        parser = new RSQLParser(operators);
     }
 
     /**
@@ -43,30 +67,6 @@ class AbstractRSQLVisitorTest {
         TestVisitor(Map<String, FiltroFieldMeta> fieldSpecMap, int maxDepth) {
             super(fieldSpecMap, maxDepth);
         }
-    }
-
-    private Map<String, FiltroFieldMeta> fieldMap;
-    private RSQLParser parser;
-
-    @BeforeEach
-    void setUp() {
-        fieldMap = Map.of(
-                "title", meta("title", FiltroOperator.EQ, FiltroOperator.NEQ, FiltroOperator.CONTAINS, FiltroOperator.IN),
-                "price", meta("price", FiltroOperator.EQ, FiltroOperator.GT, FiltroOperator.LT,
-                        FiltroOperator.ALT_GT, FiltroOperator.ALT_LT),
-                "tags", meta("tags", FiltroOperator.IN, FiltroOperator.NOT_IN)
-        );
-        fieldMap.get("tags").setMaxInSize(5);
-
-        // Build parser with compatible Filtro extension operators
-        Set<ComparisonOperator> operators = new HashSet<>(RSQLOperators.defaultOperators());
-        java.util.regex.Pattern symbolPattern = java.util.regex.Pattern.compile("=[a-zA-Z]*=|[><]=?|!=");
-        Arrays.stream(FiltroOperator.values())
-                .filter(op -> !op.isRsqlOriginal())
-                .filter(op -> symbolPattern.matcher(op.getSymbol()).matches())
-                .map(op -> new ComparisonOperator(op.getSymbol(), op.isMultiValue()))
-                .forEach(operators::add);
-        parser = new RSQLParser(operators);
     }
 
     @Nested

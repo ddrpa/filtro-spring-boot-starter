@@ -1,7 +1,7 @@
 package cc.ddrpa.filtro.springboot;
 
 import cc.ddrpa.filtro.core.FiltroRegistry;
-import cc.ddrpa.filtro.core.annotation.Filtro;
+import cc.ddrpa.filtro.core.annotation.FiltroQuery;
 import cc.ddrpa.filtro.core.field.FiltroFieldMeta;
 import cc.ddrpa.filtro.core.field.FiltroOperator;
 import cc.ddrpa.filtro.core.rsql.RsqlNodeHandler;
@@ -44,7 +44,7 @@ public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
-        return parameter.hasParameterAnnotation(Filtro.class);
+        return parameter.hasParameterAnnotation(FiltroQuery.class);
     }
 
     @Override
@@ -53,7 +53,7 @@ public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
         String query = webRequest.getParameter("q");
         if (!StringUtils.hasText(query)) {
             if (logger.isDebugEnabled()) {
-                logger.debug("Empty 'q' parameter for Filtro method parameter '{}', returning null",
+                logger.debug("Empty 'q' parameter for FiltroQuery method parameter '{}', returning null",
                         parameter.getParameterName());
             }
             return null;
@@ -62,9 +62,9 @@ public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
         if (logger.isDebugEnabled()) {
             logger.debug("RSQL parsed: {}", queryRootNode);
         }
-        Filtro filtroAnno = parameter.getParameterAnnotation(Filtro.class);
-        Class<?> entityType = filtroAnno.value();
-        Class<?> entityGroup = filtroAnno.group();
+        FiltroQuery filtroQueryAnno = parameter.getParameterAnnotation(FiltroQuery.class);
+        Class<?> entityType = filtroQueryAnno.value();
+        Class<?> entityGroup = filtroQueryAnno.group();
         Map<String, FiltroFieldMeta> fieldMetaMap = filtroRegistry.getAsMap(entityType, entityGroup);
 
         Class<?> parameterType = parameter.getParameterType();

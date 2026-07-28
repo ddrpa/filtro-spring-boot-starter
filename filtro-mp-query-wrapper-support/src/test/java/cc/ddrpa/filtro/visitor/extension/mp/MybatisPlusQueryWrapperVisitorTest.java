@@ -13,7 +13,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,7 +24,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MybatisPlusQueryWrapperVisitorTest {
 
-    static enum Status { ACTIVE, INACTIVE }
+    private Map<String, FiltroFieldMeta> fieldMap;
+    private RSQLParser parser;
 
     private static FiltroFieldMeta meta(String field, String key, QueryIntent intent, Set<FiltroOperator> ops) {
         FiltroFieldMeta m = new FiltroFieldMeta();
@@ -31,9 +35,6 @@ class MybatisPlusQueryWrapperVisitorTest {
         m.setSupportedOperations(ops);
         return m;
     }
-
-    private Map<String, FiltroFieldMeta> fieldMap;
-    private RSQLParser parser;
 
     @BeforeEach
     void setUp() {
@@ -51,7 +52,7 @@ class MybatisPlusQueryWrapperVisitorTest {
         // set enum class for status
         fieldMap.get("status").setEnumerationClass(Status.class);
 
-        // Build parser with Filtro extension operators
+        // Build parser with FiltroQuery extension operators
         Set<ComparisonOperator> operators = new HashSet<>(RSQLOperators.defaultOperators());
         Pattern symbolPattern = Pattern.compile("=[a-zA-Z]*=|[><]=?|!=");
         Arrays.stream(FiltroOperator.values())
@@ -70,51 +71,62 @@ class MybatisPlusQueryWrapperVisitorTest {
         return wrapper;
     }
 
+    static enum Status {ACTIVE, INACTIVE}
+
     @Nested
     @DisplayName("基本操作符")
     class BasicOperators {
-        @Test void eqGeneratesEqCondition() {
+        @Test
+        void eqGeneratesEqCondition() {
             QueryWrapper<?> w = parse("title==hello");
             assertThat(w.getSqlSegment()).contains("title").contains("=");
             assertThat(w.getParamNameValuePairs()).containsValue("hello");
         }
 
-        @Test void neqGeneratesNeCondition() {
+        @Test
+        void neqGeneratesNeCondition() {
             QueryWrapper<?> w = parse("title!=hello");
             assertThat(w.getSqlSegment()).contains("title").contains("<>");
         }
 
-        @Test void gtGeneratesGtCondition() {
+        @Test
+        void gtGeneratesGtCondition() {
             QueryWrapper<?> w = parse("price=gt=100");
             assertThat(w.getSqlSegment()).contains("price").contains(">");
         }
 
-        @Test void altGtGeneratesGtCondition() {
+        @Test
+        void altGtGeneratesGtCondition() {
             QueryWrapper<?> w = parse("price>100");
             assertThat(w.getSqlSegment()).contains("price").contains(">");
         }
 
-        @Test void containsGeneratesLike() {
+        @Test
+        void containsGeneratesLike() {
             QueryWrapper<?> w = parse("title=contains=java");
             assertThat(w.getSqlSegment()).contains("LIKE");
         }
 
-        @Test void prefixGeneratesLikeRight() {
+        @Test
+        void prefixGeneratesLikeRight() {
             QueryWrapper<?> w = parse("title=prefix=java");
             assertThat(w.getSqlSegment()).contains("LIKE");
         }
 
-        @Test void suffixGeneratesLikeLeft() {
+        @Test
+        void suffixGeneratesLikeLeft() {
             QueryWrapper<?> w = parse("title=suffix=java");
             assertThat(w.getSqlSegment()).contains("LIKE");
         }
 
-        @Test void isNullGeneratesIsNull() {
+        @Test
+        void isNullGeneratesIsNull() {
             QueryWrapper<?> w = parse("title=null=''");
             assertThat(w.getSqlSegment()).contains("IS NULL");
         }
 
-        @Test void notNullGeneratesIsNotNull() {
+        @Test
+        void notNullGeneratesIsNotNull() {
             QueryWrapper<?> w = parse("title=nonull=''");
             assertThat(w.getSqlSegment()).contains("IS NOT NULL");
         }
@@ -123,12 +135,14 @@ class MybatisPlusQueryWrapperVisitorTest {
     @Nested
     @DisplayName("枚举字段")
     class EnumFields {
-        @Test void enumEqConvertsValue() {
+        @Test
+        void enumEqConvertsValue() {
             QueryWrapper<?> w = parse("status==ACTIVE");
             assertThat(w.getSqlSegment()).contains("status").contains("=");
         }
 
-        @Test void enumInConvertsAllValues() {
+        @Test
+        void enumInConvertsAllValues() {
             QueryWrapper<?> w = parse("status=in=(ACTIVE,INACTIVE)");
             assertThat(w.getSqlSegment()).contains("IN");
         }
@@ -137,17 +151,20 @@ class MybatisPlusQueryWrapperVisitorTest {
     @Nested
     @DisplayName("LIKE 转义")
     class LikeEscaping {
-        @Test void escapesPercentSign() {
+        @Test
+        void escapesPercentSign() {
             QueryWrapper<?> w = parse("title=contains=100%");
             assertThat(w.getSqlSegment()).contains("LIKE");
         }
 
-        @Test void escapesUnderscore() {
+        @Test
+        void escapesUnderscore() {
             QueryWrapper<?> w = parse("title=contains=a_b");
             assertThat(w.getSqlSegment()).contains("LIKE");
         }
 
-        @Test void escapesBackslash() {
+        @Test
+        void escapesBackslash() {
             QueryWrapper<?> w = parse("title=contains=a\\b");
             assertThat(w.getSqlSegment()).contains("LIKE");
         }
@@ -156,13 +173,15 @@ class MybatisPlusQueryWrapperVisitorTest {
     @Nested
     @DisplayName("AND/OR 组合")
     class BooleanLogic {
-        @Test void andCombinesWithAnd() {
+        @Test
+        void andCombinesWithAnd() {
             QueryWrapper<?> w = parse("title==java;price=gt=50");
             String sql = w.getSqlSegment();
             assertThat(sql).contains("AND");
         }
 
-        @Test void orCombinesWithOr() {
+        @Test
+        void orCombinesWithOr() {
             QueryWrapper<?> w = parse("title==java,price=gt=50");
             // OR is inside a nested block
             assertThat(w.getSqlSegment()).isNotEmpty();
@@ -172,25 +191,29 @@ class MybatisPlusQueryWrapperVisitorTest {
     @Nested
     @DisplayName("toEnum 异常处理")
     class ToEnumErrors {
-        @Test void nullClassThrows() {
+        @Test
+        void nullClassThrows() {
             assertThatThrownBy(() -> MybatisPlusQueryWrapperVisitor.toEnum(null, "X"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("must not be null");
         }
 
-        @Test void nullNameThrows() {
+        @Test
+        void nullNameThrows() {
             assertThatThrownBy(() -> MybatisPlusQueryWrapperVisitor.toEnum(String.class, null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("must not be null");
         }
 
-        @Test void nonEnumClassThrows() {
+        @Test
+        void nonEnumClassThrows() {
             assertThatThrownBy(() -> MybatisPlusQueryWrapperVisitor.toEnum(String.class, "X"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("not an enum type");
         }
 
-        @Test void unknownEnumConstantThrows() {
+        @Test
+        void unknownEnumConstantThrows() {
             assertThatThrownBy(() -> MybatisPlusQueryWrapperVisitor.toEnum(Status.class, "UNKNOWN"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("No enum constant");
@@ -200,13 +223,15 @@ class MybatisPlusQueryWrapperVisitorTest {
     @Nested
     @DisplayName("校验")
     class Validation {
-        @Test void unknownFieldFromResolveThrows() {
+        @Test
+        void unknownFieldFromResolveThrows() {
             assertThatThrownBy(() -> parse("unknown==x"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("not found");
         }
 
-        @Test void unsupportedOpFromResolveThrows() {
+        @Test
+        void unsupportedOpFromResolveThrows() {
             assertThatThrownBy(() -> parse("title=gt=x"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("not supported");

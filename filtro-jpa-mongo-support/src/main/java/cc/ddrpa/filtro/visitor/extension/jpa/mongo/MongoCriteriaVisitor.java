@@ -26,6 +26,17 @@ public class MongoCriteriaVisitor extends AbstractRSQLVisitor<Criteria>
         super(fieldSpecMap, maxDepth);
     }
 
+    private static Function<String, Object> wrap(Function<String, Object> fn,
+                                                 FiltroFieldMeta meta, String stage) {
+        return raw -> {
+            try {
+                return fn.apply(raw);
+            } catch (Exception e) {
+                throw new PredicateBuildException(meta.getField(), raw, stage, e);
+            }
+        };
+    }
+
     public void apply(Node rootNode, Criteria criteria) {
         validateDepth(rootNode);
         criteria.andOperator(rootNode.accept(this, criteria));
@@ -61,21 +72,15 @@ public class MongoCriteriaVisitor extends AbstractRSQLVisitor<Criteria>
                     Criteria.where(filtroFieldMeta.getKey()).is(null),
                     Criteria.where(filtroFieldMeta.getKey()).ne(cast(filtroFieldMeta, arguments.get(0)))
             );
-            case GT, ALT_GT ->
-                    Criteria.where(filtroFieldMeta.getKey()).gt(cast(filtroFieldMeta, arguments.get(0)));
-            case GTE, ALT_GTE ->
-                    Criteria.where(filtroFieldMeta.getKey()).gte(cast(filtroFieldMeta, arguments.get(0)));
-            case LT, ALT_LT ->
-                    Criteria.where(filtroFieldMeta.getKey()).lt(cast(filtroFieldMeta, arguments.get(0)));
-            case LTE, ALT_LTE ->
-                    Criteria.where(filtroFieldMeta.getKey()).lte(cast(filtroFieldMeta, arguments.get(0)));
+            case GT, ALT_GT -> Criteria.where(filtroFieldMeta.getKey()).gt(cast(filtroFieldMeta, arguments.get(0)));
+            case GTE, ALT_GTE -> Criteria.where(filtroFieldMeta.getKey()).gte(cast(filtroFieldMeta, arguments.get(0)));
+            case LT, ALT_LT -> Criteria.where(filtroFieldMeta.getKey()).lt(cast(filtroFieldMeta, arguments.get(0)));
+            case LTE, ALT_LTE -> Criteria.where(filtroFieldMeta.getKey()).lte(cast(filtroFieldMeta, arguments.get(0)));
             case IN -> Criteria.where(filtroFieldMeta.getKey()).in(cast(filtroFieldMeta, arguments));
             case NOT_IN -> Criteria.where(filtroFieldMeta.getKey()).nin(cast(filtroFieldMeta, arguments));
 
-            case PREFIX ->
-                    Criteria.where(filtroFieldMeta.getKey()).regex('^' + Pattern.quote(arguments.get(0)));
-            case SUFFIX ->
-                    Criteria.where(filtroFieldMeta.getKey()).regex(Pattern.quote(arguments.get(0)) + '$');
+            case PREFIX -> Criteria.where(filtroFieldMeta.getKey()).regex('^' + Pattern.quote(arguments.get(0)));
+            case SUFFIX -> Criteria.where(filtroFieldMeta.getKey()).regex(Pattern.quote(arguments.get(0)) + '$');
             case CONTAINS -> Criteria.where(filtroFieldMeta.getKey()).regex(Pattern.quote(arguments.get(0)));
             case IS_NULL -> new Criteria().orOperator(
                     Criteria.where(filtroFieldMeta.getKey()).is(null),
@@ -85,9 +90,8 @@ public class MongoCriteriaVisitor extends AbstractRSQLVisitor<Criteria>
                     Criteria.where(filtroFieldMeta.getKey()).ne(null),
                     Criteria.where(filtroFieldMeta.getKey()).exists(true)
             );
-            default ->
-                    throw new IllegalArgumentException("FiltroOperator " + claimedFiltroOperator.getSymbol()
-                            + " is not supported in " + this.getClass().getSimpleName());
+            default -> throw new IllegalArgumentException("FiltroOperator " + claimedFiltroOperator.getSymbol()
+                    + " is not supported in " + this.getClass().getSimpleName());
         };
     }
 
@@ -110,9 +114,8 @@ public class MongoCriteriaVisitor extends AbstractRSQLVisitor<Criteria>
             case BOOLEAN -> wrap(Boolean::parseBoolean, filtroFieldMeta, "BOOLEAN");
             case SEARCH, EXACT, CATEGORY -> a -> a;
             case DATETIME -> wrap(this::parseDateTime, filtroFieldMeta, "DATETIME");
-            default ->
-                    throw new IllegalArgumentException("QueryIntent " + filtroFieldMeta.getQueryIntent()
-                            + " is not supported in " + this.getClass().getSimpleName());
+            default -> throw new IllegalArgumentException("QueryIntent " + filtroFieldMeta.getQueryIntent()
+                    + " is not supported in " + this.getClass().getSimpleName());
         };
     }
 
@@ -133,16 +136,5 @@ public class MongoCriteriaVisitor extends AbstractRSQLVisitor<Criteria>
                 }
             }
         }
-    }
-
-    private static Function<String, Object> wrap(Function<String, Object> fn,
-                                                  FiltroFieldMeta meta, String stage) {
-        return raw -> {
-            try {
-                return fn.apply(raw);
-            } catch (Exception e) {
-                throw new PredicateBuildException(meta.getField(), raw, stage, e);
-            }
-        };
     }
 }
