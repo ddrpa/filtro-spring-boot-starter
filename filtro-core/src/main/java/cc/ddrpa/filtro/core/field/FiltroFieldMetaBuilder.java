@@ -62,7 +62,7 @@ public class FiltroFieldMetaBuilder {
     /**
      * 根据 Java 类型推断默认 QueryIntent。
      */
-    private static QueryIntent inferIntent(Class<?> clazz) {
+    public static QueryIntent inferIntent(Class<?> clazz) {
         if (Integer.class.equals(clazz) || int.class.equals(clazz)
                 || Long.class.equals(clazz) || long.class.equals(clazz)
                 || Short.class.equals(clazz) || short.class.equals(clazz)
@@ -93,7 +93,7 @@ public class FiltroFieldMetaBuilder {
     /**
      * 由 QueryIntent 定主集，个别用 Java Class 微调。
      */
-    private static Set<FiltroOperator> operatorsFor(QueryIntent intent, Class<?> clazz) {
+    public static Set<FiltroOperator> operatorsFor(QueryIntent intent, Class<?> clazz) {
         return switch (intent) {
             case SEARCH -> SEARCH_OPERATORS;
             case EXACT -> isBooleanType(clazz) ? BOOLEAN_EXACT_OPERATORS : EXACT_OPERATORS;

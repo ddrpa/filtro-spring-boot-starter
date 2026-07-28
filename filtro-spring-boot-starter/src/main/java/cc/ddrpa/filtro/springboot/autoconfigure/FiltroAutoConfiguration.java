@@ -1,6 +1,9 @@
 package cc.ddrpa.filtro.springboot.autoconfigure;
 
 import cc.ddrpa.filtro.core.FiltroRegistry;
+import cc.ddrpa.filtro.core.provider.AnnotatedClassFiltroFieldMetaProvider;
+import cc.ddrpa.filtro.core.provider.FiltroFieldMetaProvider;
+import cc.ddrpa.filtro.core.provider.InMemoryFiltroFieldMetaProvider;
 import cc.ddrpa.filtro.core.rsql.RsqlNodeHandler;
 import cc.ddrpa.filtro.springboot.properties.FiltroProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -30,8 +33,21 @@ public class FiltroAutoConfiguration {
     }
 
     @Bean
-    public FiltroRegistry filtroRegistry(FiltroProperties properties) {
-        FiltroRegistry registry = new FiltroRegistry();
+    @ConditionalOnMissingBean
+    public AnnotatedClassFiltroFieldMetaProvider annotatedClassFiltroFieldMetaProvider() {
+        return new AnnotatedClassFiltroFieldMetaProvider();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public InMemoryFiltroFieldMetaProvider inMemoryFiltroFieldMetaProvider() {
+        return new InMemoryFiltroFieldMetaProvider();
+    }
+
+    @Bean
+    public FiltroRegistry filtroRegistry(FiltroProperties properties,
+                                         List<FiltroFieldMetaProvider> providers) {
+        FiltroRegistry registry = new FiltroRegistry(providers);
         registry.setMaxDepth(properties.getMaxDepth());
         return registry;
     }
@@ -39,7 +55,8 @@ public class FiltroAutoConfiguration {
     @Bean
     public FiltroMetadataCollector filtroMetadataCollector(FiltroProperties properties,
                                                            FiltroRegistry registry,
+                                                           AnnotatedClassFiltroFieldMetaProvider annotatedProvider,
                                                            RequestMappingInfoHandlerMapping handlerMapping) {
-        return new FiltroMetadataCollector(properties, registry, handlerMapping);
+        return new FiltroMetadataCollector(properties, registry, annotatedProvider, handlerMapping);
     }
 }

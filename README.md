@@ -8,9 +8,10 @@
 
 ## 特性
 
-- **零注解默认行为** — 大多数场景下字段无需注解，系统根据 Java 类型自动推断查询意图和操作符集
+- **注解即可推断** — 字段标注 `@Filtro` 后，系统根据 Java 类型自动推断查询意图和操作符集（也可显式覆盖）
 - **查询意图驱动** — 3 种 `QueryIntent`（SEARCH / EXACT / RANGE），表达查询形态；值转型与控件细节由 Java 字段类型推导
 - `@Filtro(intent = ...)` 给定默认操作符集，`operators` 做减法
+- **动态字段 Provider** — 实现 `FiltroFieldMetaProvider` 即可为 schemaless / 自定义属性提供元数据（首个 `supports` 命中独占）
 - 自动注册元数据接口，前端可凭 `queryIntent` + `component` / `dictionary` 选择控件
 - 基于 `classgraph` 的字节码扫描，无需加载类，启动快且兼容 JDK 17+
 - 自动装配 MyBatis-Plus / MongoDB / Meilisearch handler，无需手动注册 Bean
@@ -67,13 +68,16 @@ filtro:
 
 ```java
 public class Book {
-    // 零注解：String → SEARCH（模糊搜索）
+    // String → SEARCH（模糊搜索）
+    @Filtro
     private String title;
 
-    // 零注解：Enum → EXACT（EQ / IN 等）+ 枚举字典
+    // Enum → EXACT（EQ / IN 等）+ 枚举字典
+    @Filtro
     private Genre genre;
 
-    // 零注解：Integer → RANGE（数值范围）
+    // Integer → RANGE（数值范围）
+    @Filtro
     private Integer price;
 
     // 显式声明：精确匹配，不允许模糊搜索
@@ -85,7 +89,8 @@ public class Book {
             operators = {FiltroOperator.CONTAINS})
     private List<String> authors;
 
-    // RANGE 自动推断，无需声明
+    // RANGE 自动推断
+    @Filtro
     private LocalDate publishDate;
 
     // 分组隔离：仅 SysAdmin 角色可用
@@ -94,7 +99,7 @@ public class Book {
 }
 ```
 
-> `email` 字段？String → SEARCH → 前端搜索输入框，默认 CONTAINS / NOT_CONTAINS。
+> 字段必须带 `@Filtro` 才会被扫描注册。`email` 字段？`@Filtro` + String → SEARCH → 前端搜索输入框，默认 CONTAINS / NOT_CONTAINS。
 
 ### 5. 控制器
 
@@ -230,7 +235,7 @@ filtro:
 
 ## 元数据端点
 
-系统自动为每个 `@Filtro` 标注的 GET 接口注册元数据端点。例如 `GET /api/book` → `GET /api/book:filtro`：
+系统自动为每个 `@FiltroQuery` 标注的 GET 接口注册元数据端点。例如 `GET /api/book` → `GET /api/book:filtro`：
 
 ```json
 [
@@ -261,6 +266,46 @@ filtro:
 ```
 
 前端可根据 `component` 选择控件，再结合 `queryIntent` / `supportedOperations` / `dictionary` 决定单选或多选、是否区间。
+
+---
+
+## 动态字段元数据（Provider）
+
+`FiltroRegistry` 在解析 `q` 与访问 `:filtro` 时，按 `getOrder()` **升序**选取**第一个** `supports(criteriaType) == true` 的 `FiltroFieldMetaProvider`，取其完整字段列表（不合并多源）。
+
+| Provider | 默认 order | 说明 |
+|----------|------------|------|
+| 用户自定义 | `0` | 未覆盖 `getOrder()` 时优先于内置 |
+| `InMemoryFiltroFieldMetaProvider` | `100` | 命令式 `register`（无则创建、有则更新） |
+| `AnnotatedClassFiltroFieldMetaProvider` | `Integer.MAX_VALUE` | `@Filtro` 扫描结果，兜底 |
+
+**拉模式（推荐）：** 实现接口并注册为 Spring Bean。认领某类型后，Registry 不再询问后续 Provider——若还需注解字段，请在 Provider 内自行组合。
+
+```java
+@Component
+public class AssetAttributeMetaProvider implements FiltroFieldMetaProvider {
+
+    @Override
+    public boolean supports(Class<?> t) {
+        return Asset.class.equals(t);
+    }
+
+    @Override
+    public List<FiltroFieldMeta> getFields(Class<?> t) {
+        return attributeService.listFilterable().stream()
+                .map(a -> FiltroFieldMetaFactory
+                        .create(a.name(), a.intent(), a.javaType())
+                        .key(a.path())
+                        .label(a.label())
+                        .build())
+                .toList();
+    }
+}
+```
+
+**推模式：** 注入 `InMemoryFiltroFieldMetaProvider`，在属性变更后 `register(Asset.class, fullMetas)`（无则创建、有则覆盖）。InMemory 认领该类型后会挡住 Annotated 兜底。
+
+`FiltroFieldMetaFactory` 用于无 Java `Field` 的 schemaless 构建，**必须**提供 `javaType`。
 
 ---
 
