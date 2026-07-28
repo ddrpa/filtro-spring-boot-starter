@@ -21,6 +21,7 @@
         <module>filtro-spring-boot-starter</module>
         <module>filtro-mp-query-wrapper-support</module>
         <module>filtro-jpa-mongo-support</module>
+        <module>filtro-meilisearch-support</module>
     </modules>
 
     <url>https://github.com/ddrpa/filtro-spring-boot-starter</url>

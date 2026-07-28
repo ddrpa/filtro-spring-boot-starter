@@ -13,7 +13,7 @@
 - `@FiltroField(intent = ...)` 即给默认操作符集，`operators` 做减法
 - 自动注册元数据接口，前端可凭 `queryIntent` 枚举名直接选择控件
 - 基于 `classgraph` 的字节码扫描，无需加载类，启动快且兼容 JDK 17+
-- 自动装配 MyBatis-Plus / MongoDB handler，无需手动注册 Bean
+- 自动装配 MyBatis-Plus / MongoDB / Meilisearch handler，无需手动注册 Bean
 - 类似 Jakarta Bean Validation 的分组概念，支持不同场景下的查询方案
 
 ## 快速开始
@@ -28,7 +28,7 @@
 </dependency>
 ```
 
-### 2. 添加后端适配（二选一）
+### 2. 添加后端适配（任选其一）
 
 ```xml
 <!-- MyBatis-Plus -->
@@ -44,9 +44,16 @@
     <artifactId>filtro-jpa-mongo-support</artifactId>
     <version>0.0.2-SNAPSHOT</version>
 </dependency>
+
+<!-- Meilisearch filter 表达式 -->
+<dependency>
+    <groupId>cc.ddrpa.filtro</groupId>
+    <artifactId>filtro-meilisearch-support</artifactId>
+    <version>0.0.2-SNAPSHOT</version>
+</dependency>
 ```
 
-Handler 会自动装配——匹配 classpath 中的 `QueryWrapper` 或 `Criteria`。
+Handler 会自动装配——匹配 classpath 中的 `QueryWrapper`、`Criteria` 或 `MeilisearchFilter`。
 
 ### 3. 配置扫描路径
 
@@ -92,16 +99,22 @@ public class Book {
 ### 5. 控制器
 
 ```java
-@RestController
-@RequestMapping("/api/book")
-public class BookController {
+// MyBatis-Plus:
+@GetMapping
+public Page<Book> pageBooks(
+        @Filtro(Book.class) QueryWrapper<Book> wrapper,
+        PageRequest page) {
+    return bookService.page(page, wrapper);
+}
 
-    @GetMapping
-    public Page<Book> pageBooks(
-            @Filtro(Book.class) QueryWrapper<Book> wrapper,
-            PageRequest page) {
-        return bookService.page(page, wrapper);
+// Meilisearch
+@GetMapping
+public SearchResult searchBooks(@Filtro(Book.class) MeilisearchFilter filter) {
+    SearchRequest request = new SearchRequest("");
+    if (filter != null && !filter.isEmpty()) {
+        request.setFilter(new String[]{filter.expression()});
     }
+    return meilisearchClient.index("books").search(request);
 }
 ```
 
@@ -171,8 +184,8 @@ private String email;
 | 非空 | `=nonull=` | | 字段非 NULL |
 | nullable 不等 | `=nullable-neq=` | | `field != ? OR field IS NULL` |
 | 前缀匹配 | `=prefix=` | | 字符串前缀 |
-| 后缀匹配 | `=suffix=` | | 字符串后缀 |
-| 包含 | `=contains=` | | 字符串包含 |
+| 后缀匹配 | `=suffix=` | | 字符串后缀（Meilisearch 后端不支持） |
+| 包含 | `=contains=` | | 字符串包含/模糊匹配 |
 
 ---
 
