@@ -53,10 +53,11 @@ public class FiltroAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     public FiltroMetadataCollector filtroMetadataCollector(FiltroProperties properties,
                                                            FiltroRegistry registry,
                                                            AnnotatedClassFiltroFieldMetaProvider annotatedProvider,
-                                                           RequestMappingInfoHandlerMapping handlerMapping) {
-        return new FiltroMetadataCollector(properties, registry, annotatedProvider, handlerMapping);
+                                                           RequestMappingInfoHandlerMapping requestMappingHandlerMapping) {
+        return new FiltroMetadataCollector(properties, registry, annotatedProvider, requestMappingHandlerMapping);
     }
 }
