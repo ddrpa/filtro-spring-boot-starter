@@ -1,6 +1,8 @@
 package cc.ddrpa.filtro.core.field;
 
 import cc.ddrpa.filtro.core.annotation.Filtro;
+import cc.ddrpa.filtro.core.annotation.FiltroOneOf;
+import cc.ddrpa.filtro.core.dictionary.FiltroDictionarySource;
 import org.apache.commons.lang3.StringUtils;
 
 import java.lang.reflect.Field;
@@ -134,6 +136,57 @@ public class FiltroFieldMetaBuilder {
         return result;
     }
 
+    /**
+     * 将 {@code @FiltroOneOf} 值转为 identity 字典（label = value），过滤 blank、去重保序。
+     */
+    public static Map<String, String> toOneOfDict(String[] values) {
+        if (values == null || values.length == 0) {
+            return Collections.emptyMap();
+        }
+        Map<String, String> result = new LinkedHashMap<>();
+        for (String value : values) {
+            if (StringUtils.isBlank(value)) {
+                continue;
+            }
+            result.putIfAbsent(value, value);
+        }
+        return result;
+    }
+
+    /**
+     * 解析 {@link FiltroOneOf} 互斥来源。
+     */
+    static ResolvedOneOf resolveOneOf(FiltroOneOf anno, String fieldName) {
+        if (anno == null) {
+            return ResolvedOneOf.absent();
+        }
+        Map<String, String> valueDict = toOneOfDict(anno.value());
+        boolean hasValue = !valueDict.isEmpty();
+        boolean hasEnum = anno.asEnum() != null
+                && anno.asEnum() != FiltroOneOf.Unspecified.class
+                && anno.asEnum().isEnum();
+        boolean hasSource = anno.source() != null
+                && anno.source() != FiltroDictionarySource.None.class;
+
+        int count = (hasValue ? 1 : 0) + (hasEnum ? 1 : 0) + (hasSource ? 1 : 0);
+        if (count == 0) {
+            return ResolvedOneOf.absent();
+        }
+        if (count > 1) {
+            throw new IllegalArgumentException(
+                    "Field '" + fieldName + "': @FiltroOneOf allows at most one of value / asEnum / source");
+        }
+        if (hasValue) {
+            return ResolvedOneOf.staticDict(valueDict);
+        }
+        if (hasEnum) {
+            @SuppressWarnings("unchecked")
+            Class<? extends Enum<?>> enumClazz = (Class<? extends Enum<?>>) anno.asEnum();
+            return ResolvedOneOf.staticDict(toDict(enumClazz));
+        }
+        return ResolvedOneOf.source(anno.source());
+    }
+
     // ──────────── 构建 ────────────
 
     /**
@@ -145,9 +198,25 @@ public class FiltroFieldMetaBuilder {
         QueryIntent claimedIntent = this.filtroAnnotation.intent();
         Class<?> javaType = this.field.getType();
 
-        QueryIntent queryIntent = (claimedIntent == null || claimedIntent == QueryIntent.AUTO)
-                ? inferIntent(javaType)
-                : claimedIntent;
+        FiltroOneOf oneOfAnno = this.field.getAnnotation(FiltroOneOf.class);
+        ResolvedOneOf oneOf = resolveOneOf(oneOfAnno, this.field.getName());
+        boolean hasOneOf = oneOf.present();
+
+        if (hasOneOf && javaType.isEnum()) {
+            throw new IllegalArgumentException(
+                    "Field '" + this.field.getName() + "' is an enum and must not declare @FiltroOneOf");
+        }
+        if (hasOneOf && claimedIntent == QueryIntent.SEARCH) {
+            throw new IllegalArgumentException(
+                    "Field '" + this.field.getName() + "': @FiltroOneOf conflicts with QueryIntent.SEARCH");
+        }
+
+        QueryIntent queryIntent;
+        if (claimedIntent == null || claimedIntent == QueryIntent.AUTO) {
+            queryIntent = hasOneOf ? QueryIntent.EXACT : inferIntent(javaType);
+        } else {
+            queryIntent = claimedIntent;
+        }
 
         FiltroFieldMeta filtroFieldMeta = new FiltroFieldMeta();
         filtroFieldMeta.setField(StringUtils.isNotBlank(claimedFieldName) ? claimedFieldName : this.field.getName())
@@ -164,7 +233,6 @@ public class FiltroFieldMetaBuilder {
             filtroFieldMeta.setGroups(Arrays.stream(this.filtroAnnotation.groups()).collect(Collectors.toSet()));
         }
 
-        // intent 提供默认操作符集，operators 做减法；个别类型用 Class 微调
         Set<FiltroOperator> fullSet = operatorsFor(queryIntent, javaType);
         if (claimedFiltroOperators.isEmpty()) {
             filtroFieldMeta.setSupportedOperations(fullSet);
@@ -172,7 +240,6 @@ public class FiltroFieldMetaBuilder {
             Set<FiltroOperator> selected = new HashSet<>(claimedFiltroOperators);
             selected.retainAll(fullSet);
 
-            // 自动补 ALT 操作符（如声明了 LT 则自动带上 ALT_LT）
             if (selected.contains(FiltroOperator.LT)) selected.add(FiltroOperator.ALT_LT);
             if (selected.contains(FiltroOperator.LTE)) selected.add(FiltroOperator.ALT_LTE);
             if (selected.contains(FiltroOperator.GT)) selected.add(FiltroOperator.ALT_GT);
@@ -186,6 +253,10 @@ public class FiltroFieldMetaBuilder {
             Class<? extends Enum<?>> enumClazz = (Class<? extends Enum<?>>) javaType;
             filtroFieldMeta.setEnumerationClass(enumClazz);
             filtroFieldMeta.setEnumerationDictionary(toDict(enumClazz));
+        } else if (oneOf.staticDictionary != null) {
+            filtroFieldMeta.setEnumerationDictionary(oneOf.staticDictionary);
+        } else if (oneOf.sourceClass != null) {
+            filtroFieldMeta.setDictionarySourceClass(oneOf.sourceClass);
         }
 
         return filtroFieldMeta;
@@ -197,5 +268,32 @@ public class FiltroFieldMetaBuilder {
     public FiltroFieldMetaBuilder setClaimedOperators(Set<FiltroOperator> claimedFiltroOperators) {
         this.claimedFiltroOperators = claimedFiltroOperators;
         return this;
+    }
+
+    static final class ResolvedOneOf {
+        final Map<String, String> staticDictionary;
+        final Class<? extends FiltroDictionarySource> sourceClass;
+
+        private ResolvedOneOf(Map<String, String> staticDictionary,
+                              Class<? extends FiltroDictionarySource> sourceClass) {
+            this.staticDictionary = staticDictionary;
+            this.sourceClass = sourceClass;
+        }
+
+        static ResolvedOneOf absent() {
+            return new ResolvedOneOf(null, null);
+        }
+
+        static ResolvedOneOf staticDict(Map<String, String> dict) {
+            return new ResolvedOneOf(dict, null);
+        }
+
+        static ResolvedOneOf source(Class<? extends FiltroDictionarySource> sourceClass) {
+            return new ResolvedOneOf(null, sourceClass);
+        }
+
+        boolean present() {
+            return staticDictionary != null || sourceClass != null;
+        }
     }
 }

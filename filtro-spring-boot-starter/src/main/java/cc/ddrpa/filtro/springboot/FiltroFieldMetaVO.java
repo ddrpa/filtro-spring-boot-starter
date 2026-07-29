@@ -1,5 +1,6 @@
 package cc.ddrpa.filtro.springboot;
 
+import cc.ddrpa.filtro.core.dictionary.FiltroDictionarySourceResolver;
 import cc.ddrpa.filtro.core.field.FiltroFieldMeta;
 import cc.ddrpa.filtro.core.field.FiltroOperator;
 import cc.ddrpa.filtro.core.field.QueryIntent;
@@ -35,6 +36,10 @@ public class FiltroFieldMetaVO {
     private Map<String, String> dictionary;
 
     public static FiltroFieldMetaVO from(FiltroFieldMeta meta) {
+        return from(meta, null);
+    }
+
+    public static FiltroFieldMetaVO from(FiltroFieldMeta meta, FiltroDictionarySourceResolver resolver) {
         FiltroFieldMetaVO vo = new FiltroFieldMetaVO();
         vo.setField(meta.getField());
         vo.setQueryIntent(meta.getQueryIntent());
@@ -42,14 +47,22 @@ public class FiltroFieldMetaVO {
         vo.setSupportedOperations(meta.getSupportedOperations());
         vo.setLabel(meta.getLabel());
         vo.setTooltip(meta.getTooltip());
-        if (meta.isEnumeration()) {
+        if (meta.getDictionarySourceClass() != null) {
+            if (resolver == null) {
+                throw new IllegalStateException(
+                        "Field '" + meta.getField() + "' declares dictionary source "
+                                + meta.getDictionarySourceClass().getName()
+                                + " but no FiltroDictionarySourceResolver is available");
+            }
+            vo.setDictionary(resolver.resolve(meta.getDictionarySourceClass()));
+        } else if (meta.getEnumerationDictionary() != null && !meta.getEnumerationDictionary().isEmpty()) {
             vo.setDictionary(meta.getEnumerationDictionary());
         }
         return vo;
     }
 
     static FiltroComponent inferComponent(FiltroFieldMeta meta) {
-        if (meta.isEnumeration()) {
+        if (meta.hasDictionary()) {
             return FiltroComponent.SELECT;
         }
         Class<?> type = meta.getJavaType();

@@ -12,6 +12,7 @@ import java.time.LocalTime;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FiltroFieldMetaVOTest {
 
@@ -70,6 +71,50 @@ class FiltroFieldMetaVOTest {
         m.setEnumerationClass(Genre.class);
         m.setEnumerationDictionary(Map.of("小说", "FICTION"));
         assertThat(FiltroFieldMetaVO.inferComponent(m)).isEqualTo(FiltroComponent.SELECT);
+    }
+
+    @Test
+    void oneOfDictionaryIsSelectWithoutEnumType() {
+        FiltroFieldMeta m = meta(String.class, QueryIntent.EXACT);
+        m.setEnumerationDictionary(Map.of("DRAFT", "DRAFT", "PUBLISHED", "PUBLISHED"));
+        assertThat(m.isEnumeration()).isFalse();
+        assertThat(m.hasDictionary()).isTrue();
+        assertThat(FiltroFieldMetaVO.inferComponent(m)).isEqualTo(FiltroComponent.SELECT);
+
+        FiltroFieldMetaVO vo = FiltroFieldMetaVO.from(m);
+        assertThat(vo.getComponent()).isEqualTo(FiltroComponent.SELECT);
+        assertThat(vo.getDictionary()).containsEntry("DRAFT", "DRAFT");
+    }
+
+    @Test
+    void sourceClassIsSelectAndResolvedViaResolver() {
+        class Src implements cc.ddrpa.filtro.core.dictionary.FiltroDictionarySource {
+            @Override
+            public Map<String, String> dictionary() {
+                return Map.of("L", "V");
+            }
+        }
+        FiltroFieldMeta m = meta(String.class, QueryIntent.EXACT);
+        m.setDictionarySourceClass(Src.class);
+        assertThat(FiltroFieldMetaVO.inferComponent(m)).isEqualTo(FiltroComponent.SELECT);
+
+        FiltroFieldMetaVO vo = FiltroFieldMetaVO.from(m, type -> Map.of("L", "V"));
+        assertThat(vo.getDictionary()).containsEntry("L", "V");
+    }
+
+    @Test
+    void sourceWithoutResolverThrows() {
+        FiltroFieldMeta m = meta(String.class, QueryIntent.EXACT);
+        class Src implements cc.ddrpa.filtro.core.dictionary.FiltroDictionarySource {
+            @Override
+            public Map<String, String> dictionary() {
+                return Map.of();
+            }
+        }
+        m.setDictionarySourceClass(Src.class);
+        assertThatThrownBy(() -> FiltroFieldMetaVO.from(m))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FiltroDictionarySourceResolver");
     }
 
     @Test

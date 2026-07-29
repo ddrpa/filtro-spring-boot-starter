@@ -1,6 +1,7 @@
 package cc.ddrpa.filtro.core.field;
 
 import cc.ddrpa.filtro.core.annotation.Filtro;
+import cc.ddrpa.filtro.core.annotation.FiltroOneOf;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -114,6 +115,67 @@ class FiltroQueryFieldMetaBuilderTest {
 
         @Filtro(operators = {FiltroOperator.CONTAINS})
         private Integer nonsense;                      // CONTAINS ∉ RANGE → empty
+    }
+
+    enum StatusWithDesc {
+        DRAFT("草稿"),
+        PUBLISHED("已发布");
+
+        private final String description;
+
+        StatusWithDesc(String description) {
+            this.description = description;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+    }
+
+    static class StubDictSource implements cc.ddrpa.filtro.core.dictionary.FiltroDictionarySource {
+        @Override
+        public java.util.Map<String, String> dictionary() {
+            return java.util.Map.of("标签", "CODE");
+        }
+    }
+
+    @SuppressWarnings("unused")
+    static class OneOfFields {
+        @Filtro
+        @FiltroOneOf({"DRAFT", "PUBLISHED", "ARCHIVED"})
+        private String status;
+
+        @Filtro(intent = QueryIntent.EXACT)
+        @FiltroOneOf({"A", "B"})
+        private String code;
+
+        @Filtro
+        @FiltroOneOf({"", "  ", "OK"})
+        private String blanksFiltered;
+
+        @Filtro
+        @FiltroOneOf({})
+        private String emptyOneOf;
+
+        @Filtro(intent = QueryIntent.SEARCH)
+        @FiltroOneOf({"X"})
+        private String searchConflict;
+
+        @Filtro
+        @FiltroOneOf({"FICTION"})
+        private Genre genreWithOneOf;
+
+        @Filtro
+        @FiltroOneOf(asEnum = StatusWithDesc.class)
+        private String statusFromEnum;
+
+        @Filtro
+        @FiltroOneOf(source = StubDictSource.class)
+        private String statusFromSource;
+
+        @Filtro
+        @FiltroOneOf(value = {"A"}, asEnum = StatusWithDesc.class)
+        private String mutualConflict;
     }
 
     // ─── type inference ───
@@ -392,6 +454,7 @@ class FiltroQueryFieldMetaBuilderTest {
         void enumFieldHasDictionary() {
             FiltroFieldMeta meta = build(PlainTypes.class, "genre");
             assertThat(meta.isEnumeration()).isTrue();
+            assertThat(meta.hasDictionary()).isTrue();
             assertThat(meta.getEnumerationClass()).isEqualTo(Genre.class);
             assertThat(meta.getEnumerationDictionary()).isNotEmpty();
         }
@@ -403,6 +466,89 @@ class FiltroQueryFieldMetaBuilderTest {
             assertThatThrownBy(() -> FiltroFieldMetaBuilder.toDict(notEnum))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("Failed to build enum map");
+        }
+    }
+
+    // ─── @FiltroOneOf ───
+
+    @Nested
+    @DisplayName("@FiltroOneOf 离散码表")
+    class OneOfDict {
+        @Test
+        void promotesAutoToExactAndFillsIdentityDictionary() {
+            FiltroFieldMeta meta = build(OneOfFields.class, "status");
+            assertThat(meta.getQueryIntent()).isEqualTo(QueryIntent.EXACT);
+            assertThat(meta.isEnumeration()).isFalse();
+            assertThat(meta.hasDictionary()).isTrue();
+            assertThat(meta.getEnumerationClass()).isNull();
+            assertThat(meta.getEnumerationDictionary())
+                    .containsExactly(
+                            Map.entry("DRAFT", "DRAFT"),
+                            Map.entry("PUBLISHED", "PUBLISHED"),
+                            Map.entry("ARCHIVED", "ARCHIVED"));
+            assertThat(meta.getSupportedOperations()).contains(FiltroOperator.EQ, FiltroOperator.IN);
+            assertThat(meta.getSupportedOperations()).doesNotContain(FiltroOperator.CONTAINS);
+        }
+
+        @Test
+        void explicitExactWithOneOfKeepsExact() {
+            FiltroFieldMeta meta = build(OneOfFields.class, "code");
+            assertThat(meta.getQueryIntent()).isEqualTo(QueryIntent.EXACT);
+            assertThat(meta.getEnumerationDictionary()).containsEntry("A", "A").containsEntry("B", "B");
+        }
+
+        @Test
+        void blankValuesFilteredAndDeduped() {
+            FiltroFieldMeta meta = build(OneOfFields.class, "blanksFiltered");
+            assertThat(meta.getEnumerationDictionary()).containsExactly(Map.entry("OK", "OK"));
+        }
+
+        @Test
+        void emptyOneOfIgnoredFallsBackToSearch() {
+            FiltroFieldMeta meta = build(OneOfFields.class, "emptyOneOf");
+            assertThat(meta.getQueryIntent()).isEqualTo(QueryIntent.SEARCH);
+            assertThat(meta.hasDictionary()).isFalse();
+        }
+
+        @Test
+        void conflictsWithSearch() {
+            assertThatThrownBy(() -> build(OneOfFields.class, "searchConflict"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("SEARCH");
+        }
+
+        @Test
+        void conflictsWithEnumField() {
+            assertThatThrownBy(() -> build(OneOfFields.class, "genreWithOneOf"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("@FiltroOneOf");
+        }
+
+        @Test
+        void asEnumUsesDescriptionAsLabel() {
+            FiltroFieldMeta meta = build(OneOfFields.class, "statusFromEnum");
+            assertThat(meta.getQueryIntent()).isEqualTo(QueryIntent.EXACT);
+            assertThat(meta.isEnumeration()).isFalse();
+            assertThat(meta.getDictionarySourceClass()).isNull();
+            assertThat(meta.getEnumerationDictionary())
+                    .containsEntry("草稿", "DRAFT")
+                    .containsEntry("已发布", "PUBLISHED");
+        }
+
+        @Test
+        void sourceStoresClassWithoutResolving() {
+            FiltroFieldMeta meta = build(OneOfFields.class, "statusFromSource");
+            assertThat(meta.getQueryIntent()).isEqualTo(QueryIntent.EXACT);
+            assertThat(meta.hasDictionary()).isTrue();
+            assertThat(meta.getEnumerationDictionary()).isNull();
+            assertThat(meta.getDictionarySourceClass()).isEqualTo(StubDictSource.class);
+        }
+
+        @Test
+        void rejectsMultipleSources() {
+            assertThatThrownBy(() -> build(OneOfFields.class, "mutualConflict"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("at most one");
         }
     }
 }

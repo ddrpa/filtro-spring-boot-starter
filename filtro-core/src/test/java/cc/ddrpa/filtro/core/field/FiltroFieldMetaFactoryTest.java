@@ -37,8 +37,55 @@ class FiltroFieldMetaFactoryTest {
                 .build();
 
         assertThat(meta.isEnumeration()).isTrue();
+        assertThat(meta.hasDictionary()).isTrue();
         assertThat(meta.getEnumerationClass()).isEqualTo(Color.class);
         assertThat(meta.getEnumerationDictionary()).containsKeys("RED", "BLUE");
+    }
+
+    @Test
+    void oneOfFillsDictionaryWithoutEnumCoercion() {
+        FiltroFieldMeta meta = FiltroFieldMetaFactory
+                .create("status", QueryIntent.EXACT, String.class)
+                .oneOf("DRAFT", "PUBLISHED")
+                .build();
+
+        assertThat(meta.isEnumeration()).isFalse();
+        assertThat(meta.hasDictionary()).isTrue();
+        assertThat(meta.getEnumerationClass()).isNull();
+        assertThat(meta.getEnumerationDictionary())
+                .containsEntry("DRAFT", "DRAFT")
+                .containsEntry("PUBLISHED", "PUBLISHED");
+    }
+
+    @Test
+    void oneOfEnumFillsLabeledDictionary() {
+        FiltroFieldMeta meta = FiltroFieldMetaFactory
+                .create("status", QueryIntent.EXACT, String.class)
+                .oneOfEnum(Color.class)
+                .build();
+
+        assertThat(meta.isEnumeration()).isFalse();
+        assertThat(meta.getDictionarySourceClass()).isNull();
+        assertThat(meta.getEnumerationDictionary()).containsKeys("RED", "BLUE");
+    }
+
+    @Test
+    void oneOfSourceStoresClassOnly() {
+        FiltroFieldMeta meta = FiltroFieldMetaFactory
+                .create("status", QueryIntent.EXACT, String.class)
+                .oneOfSource(TestDictSource.class)
+                .build();
+
+        assertThat(meta.hasDictionary()).isTrue();
+        assertThat(meta.getEnumerationDictionary()).isNull();
+        assertThat(meta.getDictionarySourceClass()).isEqualTo(TestDictSource.class);
+    }
+
+    static class TestDictSource implements cc.ddrpa.filtro.core.dictionary.FiltroDictionarySource {
+        @Override
+        public java.util.Map<String, String> dictionary() {
+            return java.util.Map.of("L", "V");
+        }
     }
 
     @Test

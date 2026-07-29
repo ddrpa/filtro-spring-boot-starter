@@ -1,5 +1,6 @@
 package cc.ddrpa.filtro.core.field;
 
+import cc.ddrpa.filtro.core.dictionary.FiltroDictionarySource;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
@@ -46,6 +47,7 @@ public final class FiltroFieldMetaFactory {
         private Set<Class<?>> groups = Collections.emptySet();
         private Class<?> enumerationClass;
         private java.util.Map<String, String> enumerationDictionary;
+        private Class<? extends FiltroDictionarySource> dictionarySourceClass;
 
         private Builder(String field, QueryIntent intent, Class<?> javaType) {
             this.field = field;
@@ -97,6 +99,38 @@ public final class FiltroFieldMetaFactory {
             return this;
         }
 
+        /**
+         * 离散可选值（label = value），等同 {@code @FiltroOneOf(value = ...)}。
+         */
+        public Builder oneOf(String... values) {
+            this.enumerationDictionary = FiltroFieldMetaBuilder.toOneOfDict(values);
+            this.dictionarySourceClass = null;
+            return this;
+        }
+
+        /**
+         * 借用 Enum 字典，等同 {@code @FiltroOneOf(asEnum = ...)}。
+         */
+        public Builder oneOfEnum(Class<? extends Enum<?>> enumClass) {
+            Objects.requireNonNull(enumClass, "enumClass");
+            this.enumerationDictionary = FiltroFieldMetaBuilder.toDict(enumClass);
+            this.dictionarySourceClass = null;
+            return this;
+        }
+
+        /**
+         * Spring Bean 码表类型，等同 {@code @FiltroOneOf(source = ...)}；元数据请求时再解析。
+         */
+        public Builder oneOfSource(Class<? extends FiltroDictionarySource> sourceClass) {
+            Objects.requireNonNull(sourceClass, "sourceClass");
+            if (sourceClass == FiltroDictionarySource.None.class) {
+                throw new IllegalArgumentException("sourceClass must not be FiltroDictionarySource.None");
+            }
+            this.dictionarySourceClass = sourceClass;
+            this.enumerationDictionary = null;
+            return this;
+        }
+
         public FiltroFieldMeta build() {
             FiltroFieldMeta meta = new FiltroFieldMeta();
             meta.setField(field)
@@ -122,7 +156,16 @@ public final class FiltroFieldMetaFactory {
                 meta.setSupportedOperations(Collections.unmodifiableSet(selected));
             }
 
-            if (enumerationClass != null) {
+            if (javaType.isEnum()) {
+                @SuppressWarnings("unchecked")
+                Class<? extends Enum<?>> enumClazz = (Class<? extends Enum<?>>) javaType;
+                meta.setEnumerationClass(enumClazz);
+                if (enumerationDictionary != null) {
+                    meta.setEnumerationDictionary(enumerationDictionary);
+                } else {
+                    meta.setEnumerationDictionary(FiltroFieldMetaBuilder.toDict(enumClazz));
+                }
+            } else if (enumerationClass != null) {
                 meta.setEnumerationClass(enumerationClass);
                 if (enumerationDictionary != null) {
                     meta.setEnumerationDictionary(enumerationDictionary);
@@ -131,11 +174,10 @@ public final class FiltroFieldMetaFactory {
                     Class<? extends Enum<?>> enumClazz = (Class<? extends Enum<?>>) enumerationClass;
                     meta.setEnumerationDictionary(FiltroFieldMetaBuilder.toDict(enumClazz));
                 }
-            } else if (javaType.isEnum()) {
-                @SuppressWarnings("unchecked")
-                Class<? extends Enum<?>> enumClazz = (Class<? extends Enum<?>>) javaType;
-                meta.setEnumerationClass(enumClazz);
-                meta.setEnumerationDictionary(FiltroFieldMetaBuilder.toDict(enumClazz));
+            } else if (dictionarySourceClass != null) {
+                meta.setDictionarySourceClass(dictionarySourceClass);
+            } else if (enumerationDictionary != null && !enumerationDictionary.isEmpty()) {
+                meta.setEnumerationDictionary(enumerationDictionary);
             }
 
             return meta;
