@@ -11,6 +11,7 @@
 - **注解即可推断** — 字段标注 `@Filtro` 后，系统根据 Java 类型自动推断查询意图和操作符集（也可显式覆盖）
 - **查询意图驱动** — 3 种 `QueryIntent`（SEARCH / EXACT / RANGE），表达查询形态；值转型与控件细节由 Java 字段类型推导
 - `@Filtro(intent = ...)` 给定默认操作符集，`operators` 做减法
+- **可选码表** — String 需要固定选项时加 `@FiltroOneOf`（`value` / `asEnum` / `source` 三选一），行为类似 Enum（EXACT + SELECT + dictionary）
 - **动态字段 Provider** — 实现 `FiltroFieldMetaProvider` 即可为 schemaless / 自定义属性提供元数据（首个 `supports` 命中独占）
 - 自动注册元数据接口，前端可凭 `queryIntent` + `component` / `dictionary` 选择控件
 - 基于 `classgraph` 的字节码扫描，无需加载类，启动快且兼容 JDK 17+
@@ -65,7 +66,7 @@ Handler 会自动装配——匹配 classpath 中的 `QueryWrapper`、`Criteria`
 
 引入 `filtro-springdoc-support` 且项目已启用 springdoc 时，会自动：
 
-- 将动态注册的元数据端点（如 `GET /api/book:filtro`）写入 OpenAPI
+- 将动态注册的元数据端点（如 `GET /api/book:filtro`）写入 OpenAPI，**与原查询接口共用同一 tag 分组**，summary / description / operationId / path 参数从原 Operation 派生
 - 为带 `@FiltroQuery` 的查询接口补充查询参数 `q`（RSQL）说明，并隐藏该注解对应的方法参数
 
 ### 3. 配置扫描路径
@@ -92,7 +93,12 @@ public class Book {
     @Filtro
     private Integer price;
 
-    // 显式声明：精确匹配，不允许模糊搜索
+    // String 离散码表：@FiltroOneOf → EXACT + SELECT（label = value）
+    @Filtro
+    @FiltroOneOf({"DRAFT", "PUBLISHED", "ARCHIVED"})
+    private String status;
+
+    // 显式声明：精确匹配，不允许模糊搜索（无固定选项，仍为 TEXT）
     @Filtro(intent = QueryIntent.EXACT)
     private String isbn;
 
@@ -158,10 +164,48 @@ GET /api/book:filtro
 | QueryIntent | Java 推断源 | 默认操作符 | 典型 `component` |
 |-------------|------------|-----------|------------------|
 | `SEARCH` | `String`（fallback） | `=contains=`, `=nocontains=`, `=null=`, `=nonull=` | `TEXT` |
-| `EXACT` | `Boolean` / `Enum`；或显式声明（如 SKU） | `==`, `!=`, `=nullableneq=`, `=in=`, `=out=`, `=null=`, `=nonull=`（Boolean 无 IN） | `CHECKBOX` / `SELECT` / `TEXT` |
+| `EXACT` | `Boolean` / `Enum` / `@FiltroOneOf`；或显式声明（如 SKU） | `==`, `!=`, `=nullableneq=`, `=in=`, `=out=`, `=null=`, `=nonull=`（Boolean 无 IN） | `CHECKBOX` / `SELECT` / `TEXT` |
 | `RANGE` | 数值、`BigDecimal`、日期时间 | `>` / `>=` / `<` / `<=`（+ ALT）+ `=null=` / `=nonull=`；整型/`BigDecimal`/日期额外带 `==`/`!=`/`=nullableneq=`；`Float`/`Double` 默认无 EQ | `NUMBER` / `DATE` / `DATETIME` |
 
 `IN` / `NOT_IN` 归属 **EXACT**（离散精确匹配），不在 RANGE 默认集中。
+
+### String 离散码表（`@FiltroOneOf`）
+
+主路径仍是只写 `@Filtro`。需要固定可选集时同字段再加 `@FiltroOneOf`（三种来源**互斥**，至多一种）：
+
+```java
+// 1. 简单码表（label = value）
+@Filtro
+@FiltroOneOf({"DRAFT", "PUBLISHED", "ARCHIVED"})
+private String status;
+
+// 2. 借用 Enum：label ← getDescription/getDesc/getName，value ← name()
+@Filtro
+@FiltroOneOf(asEnum = Status.class)
+private String statusCode;
+
+// 3. Spring Bean（须 implements FiltroDictionarySource 并注册为 Bean）
+@Filtro
+@FiltroOneOf(source = StatusDictSource.class)
+private String statusFromDb;
+```
+
+```java
+@Component
+public class StatusDictSource implements FiltroDictionarySource {
+    private final DictMapper mapper;
+    public StatusDictSource(DictMapper mapper) { this.mapper = mapper; }
+    @Override
+    public Map<String, String> dictionary() { return mapper.loadStatusDict(); }
+}
+```
+
+- `intent` 为 `AUTO` 时自动视为 `EXACT`；前端 `component=SELECT`
+- `source` **仅**通过 `ApplicationContext.getBean` 解析（不做无参 `new`）；在每次 `GET :filtro` 时求值，启动扫描只保存 Class
+- 字段本身是 Java Enum 时不要再标 `@FiltroOneOf`；也不可与显式 `intent = SEARCH` 并用
+- 查询运行时不校验入参是否落在码表内
+
+动态字段：`oneOf(...)` / `oneOfEnum(...)` / `oneOfSource(...)`。
 
 ### 覆盖默认操作符（减法模式）
 
@@ -222,6 +266,16 @@ private String email;
 | `intent()` | `QueryIntent` | `AUTO` | 查询意图，AUTO 时根据 Java 类型推断 |
 | `operators()` | `FiltroOperator[]` | `{}` | 操作符白名单，在 Intent 默认集中做减法 |
 | `groups()` | `Class<?>[]` | `{}` | 适用分组 |
+
+### `@FiltroOneOf`（实体字段，可选）
+
+与 `@Filtro` 同字段使用。`value` / `asEnum` / `source` 互斥，至多指定一种。
+
+| 属性 | 类型 | 默认 | 说明 |
+|------|------|------|------|
+| `value()` | `String[]` | `{}` | 简单码表，label = value |
+| `asEnum()` | `Class<? extends Enum<?>>` | `Unspecified` | 借用 Enum 字典（description → label，`name()` → value） |
+| `source()` | `Class<? extends FiltroDictionarySource>` | `None` | Spring Bean 类型；元数据请求时 `getBean` 解析 |
 
 ---
 

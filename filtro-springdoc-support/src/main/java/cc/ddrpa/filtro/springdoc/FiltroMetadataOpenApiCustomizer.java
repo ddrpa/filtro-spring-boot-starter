@@ -1,6 +1,7 @@
 package cc.ddrpa.filtro.springdoc;
 
 import cc.ddrpa.filtro.springboot.FiltroFieldMetaVO;
+import cc.ddrpa.filtro.springboot.FiltroMetadataEndpointInfo;
 import cc.ddrpa.filtro.springboot.autoconfigure.FiltroMetadataCollector;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.core.converter.ResolvedSchema;
@@ -13,22 +14,26 @@ import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
-import io.swagger.v3.oas.models.tags.Tag;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
  * 将 {@link FiltroMetadataCollector} 动态注册的元数据端点写入 OpenAPI。
+ * <p>
+ * tags / summary / description / operationId / path 参数从原查询接口的 Operation 派生，
+ * 与原接口处于同一文档分组，不另建 Tag。
  */
 public class FiltroMetadataOpenApiCustomizer implements GlobalOpenApiCustomizer {
 
-    public static final String TAG_NAME = "Filtro";
     public static final String SCHEMA_NAME = "FiltroFieldMetaVO";
+    public static final String SUMMARY_SUFFIX = " — filter metadata";
+    public static final String OPERATION_ID_SUFFIX = "FiltroMetadata";
 
     private final FiltroMetadataCollector metadataCollector;
 
@@ -38,7 +43,7 @@ public class FiltroMetadataOpenApiCustomizer implements GlobalOpenApiCustomizer 
 
     @Override
     public void customise(OpenAPI openApi) {
-        Map<String, Pair<Class<?>, Class<?>>> endpoints = metadataCollector.getRegisteredMetadataEndpoints();
+        Map<String, FiltroMetadataEndpointInfo> endpoints = metadataCollector.getRegisteredMetadataEndpoints();
         if (endpoints.isEmpty()) {
             return;
         }
@@ -51,23 +56,10 @@ public class FiltroMetadataOpenApiCustomizer implements GlobalOpenApiCustomizer 
         if (openApi.getPaths() == null) {
             openApi.setPaths(new Paths());
         }
-        ensureTag(openApi);
 
-        for (Map.Entry<String, Pair<Class<?>, Class<?>>> entry : endpoints.entrySet()) {
-            String path = entry.getKey();
-            Class<?> criteriaType = entry.getValue().getLeft();
-            Class<?> group = entry.getValue().getRight();
-            openApi.getPaths().addPathItem(path, buildPathItem(path, criteriaType, group));
-        }
-    }
-
-    private void ensureTag(OpenAPI openApi) {
-        boolean exists = openApi.getTags() != null
-                && openApi.getTags().stream().anyMatch(t -> TAG_NAME.equals(t.getName()));
-        if (!exists) {
-            openApi.addTagsItem(new Tag()
-                    .name(TAG_NAME)
-                    .description("Filtro filter field metadata endpoints"));
+        for (FiltroMetadataEndpointInfo info : endpoints.values()) {
+            Operation source = findGetOperation(openApi, info.getOriginalPath());
+            openApi.getPaths().addPathItem(info.getMetadataPath(), buildPathItem(info, source));
         }
     }
 
@@ -85,19 +77,14 @@ public class FiltroMetadataOpenApiCustomizer implements GlobalOpenApiCustomizer 
         }
     }
 
-    private PathItem buildPathItem(String path, Class<?> criteriaType, Class<?> group) {
-        String operationId = "filtroMetadata_" + sanitizeOperationId(path);
-        String summary = "Filtro field metadata for " + criteriaType.getSimpleName();
-        String description = buildDescription(criteriaType, group);
-
+    private PathItem buildPathItem(FiltroMetadataEndpointInfo info, Operation source) {
         Schema<?> itemRef = new Schema<>().$ref("#/components/schemas/" + SCHEMA_NAME);
         ArraySchema arraySchema = new ArraySchema().items(itemRef);
 
         Operation operation = new Operation()
-                .operationId(operationId)
-                .summary(summary)
-                .description(description)
-                .tags(List.of(TAG_NAME))
+                .operationId(deriveOperationId(info, source))
+                .summary(deriveSummary(info, source))
+                .description(deriveDescription(info, source))
                 .responses(new ApiResponses()
                         .addApiResponse("200", new ApiResponse()
                                 .description("Filterable field metadata")
@@ -105,16 +92,64 @@ public class FiltroMetadataOpenApiCustomizer implements GlobalOpenApiCustomizer 
                                         .addMediaType("application/json",
                                                 new MediaType().schema(arraySchema)))));
 
+        if (source != null) {
+            if (source.getTags() != null && !source.getTags().isEmpty()) {
+                operation.setTags(new ArrayList<>(source.getTags()));
+            }
+            copyPathParameters(source, operation);
+        }
+
         return new PathItem().get(operation);
     }
 
-    private static String buildDescription(Class<?> criteriaType, Class<?> group) {
+    private static void copyPathParameters(Operation source, Operation target) {
+        if (source.getParameters() == null) {
+            return;
+        }
+        for (Parameter parameter : source.getParameters()) {
+            if (parameter != null && "path".equals(parameter.getIn())) {
+                target.addParametersItem(parameter);
+            }
+        }
+    }
+
+    static Operation findGetOperation(OpenAPI openApi, String originalPath) {
+        if (openApi.getPaths() == null || originalPath == null) {
+            return null;
+        }
+        PathItem pathItem = openApi.getPaths().get(originalPath);
+        if (pathItem == null) {
+            return null;
+        }
+        return pathItem.getGet();
+    }
+
+    static String deriveOperationId(FiltroMetadataEndpointInfo info, Operation source) {
+        if (source != null && source.getOperationId() != null && !source.getOperationId().isBlank()) {
+            return source.getOperationId() + OPERATION_ID_SUFFIX;
+        }
+        return "filtroMetadata_" + sanitizeOperationId(info.getMetadataPath());
+    }
+
+    static String deriveSummary(FiltroMetadataEndpointInfo info, Operation source) {
+        if (source != null && source.getSummary() != null && !source.getSummary().isBlank()) {
+            return source.getSummary() + SUMMARY_SUFFIX;
+        }
+        return "Filter metadata for " + info.getCriteriaType().getSimpleName();
+    }
+
+    static String deriveDescription(FiltroMetadataEndpointInfo info, Operation source) {
         StringBuilder sb = new StringBuilder();
+        if (source != null && source.getDescription() != null && !source.getDescription().isBlank()) {
+            sb.append(source.getDescription().trim()).append("\n\n");
+        }
         sb.append("Returns filterable field metadata for criteria type `")
-                .append(criteriaType.getName())
-                .append("`.");
-        if (group != null && group != void.class) {
-            sb.append(" Group: `").append(group.getName()).append("`.");
+                .append(info.getCriteriaType().getName())
+                .append("` (companion of `")
+                .append(info.getOriginalPath())
+                .append("`).");
+        if (info.getGroup() != null && info.getGroup() != void.class) {
+            sb.append(" Group: `").append(info.getGroup().getName()).append("`.");
         }
         return sb.toString();
     }
