@@ -83,11 +83,14 @@ public class FiltroMetadataCollector implements SmartInitializingSingleton {
     }
 
     /**
+     * @return 已注册的元数据端点 path → (criteriaType, group)，只读视图
+     */
+    public Map<String, Pair<Class<?>, Class<?>>> getRegisteredMetadataEndpoints() {
+        return Collections.unmodifiableMap(metadataEndpoint2TypeAndGroup);
+    }
+
+    /**
      * FiltroQuery 元信息 endpoint 处理方法
-     *
-     * @param request
-     * @param ignoredPathVars
-     * @return
      */
     public ResponseEntity<List<FiltroFieldMetaVO>> filtroMetadata(HttpServletRequest request,
                                                                   @PathVariable Map<String, String> ignoredPathVars) {

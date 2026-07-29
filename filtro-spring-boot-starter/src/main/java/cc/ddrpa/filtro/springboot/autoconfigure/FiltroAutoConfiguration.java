@@ -6,6 +6,7 @@ import cc.ddrpa.filtro.core.provider.FiltroFieldMetaProvider;
 import cc.ddrpa.filtro.core.provider.InMemoryFiltroFieldMetaProvider;
 import cc.ddrpa.filtro.core.rsql.RsqlNodeHandler;
 import cc.ddrpa.filtro.springboot.properties.FiltroProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -57,6 +58,7 @@ public class FiltroAutoConfiguration {
     public FiltroMetadataCollector filtroMetadataCollector(FiltroProperties properties,
                                                            FiltroRegistry registry,
                                                            AnnotatedClassFiltroFieldMetaProvider annotatedProvider,
+                                                           @Qualifier("requestMappingHandlerMapping")
                                                            RequestMappingInfoHandlerMapping requestMappingHandlerMapping) {
         return new FiltroMetadataCollector(properties, registry, annotatedProvider, requestMappingHandlerMapping);
     }

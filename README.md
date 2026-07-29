@@ -52,9 +52,21 @@
     <artifactId>filtro-meilisearch-support</artifactId>
     <version>0.0.2-SNAPSHOT</version>
 </dependency>
+
+<!-- Springdoc / OpenAPI（可选：文档化元数据端点与 q 参数） -->
+<dependency>
+    <groupId>cc.ddrpa.filtro</groupId>
+    <artifactId>filtro-springdoc-support</artifactId>
+    <version>0.0.2-SNAPSHOT</version>
+</dependency>
 ```
 
 Handler 会自动装配——匹配 classpath 中的 `QueryWrapper`、`Criteria` 或 `MeilisearchFilter`。
+
+引入 `filtro-springdoc-support` 且项目已启用 springdoc 时，会自动：
+
+- 将动态注册的元数据端点（如 `GET /api/book:filtro`）写入 OpenAPI
+- 为带 `@FiltroQuery` 的查询接口补充查询参数 `q`（RSQL）说明，并隐藏该注解对应的方法参数
 
 ### 3. 配置扫描路径
 
