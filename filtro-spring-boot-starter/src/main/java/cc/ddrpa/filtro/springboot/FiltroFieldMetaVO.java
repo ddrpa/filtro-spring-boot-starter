@@ -26,7 +26,7 @@ public class FiltroFieldMetaVO {
     private Set<FiltroOperator> supportedOperations;
 
     // 描述说明（展示名）
-    private String description;
+    private String label;
 
     // 悬停提示
     private String tooltip;
@@ -40,7 +40,7 @@ public class FiltroFieldMetaVO {
         vo.setQueryIntent(meta.getQueryIntent());
         vo.setComponent(inferComponent(meta));
         vo.setSupportedOperations(meta.getSupportedOperations());
-        vo.setDescription(meta.getLabel());
+        vo.setLabel(meta.getLabel());
         vo.setTooltip(meta.getTooltip());
         if (meta.isEnumeration()) {
             vo.setDictionary(meta.getEnumerationDictionary());
@@ -113,12 +113,12 @@ public class FiltroFieldMetaVO {
         return this;
     }
 
-    public String getDescription() {
-        return description;
+    public String getLabel() {
+        return label;
     }
 
-    public FiltroFieldMetaVO setDescription(String description) {
-        this.description = description;
+    public FiltroFieldMetaVO setLabel(String label) {
+        this.label = label;
         return this;
     }
 
