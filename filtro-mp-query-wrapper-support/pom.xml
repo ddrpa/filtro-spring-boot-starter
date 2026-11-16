@@ -6,10 +6,12 @@
     <parent>
         <groupId>cc.ddrpa.filtro</groupId>
         <artifactId>filtro-parent</artifactId>
-        <version>0.0.2-SNAPSHOT</version>
+        <version>0.0.2</version>
     </parent>
 
     <artifactId>filtro-mp-query-wrapper-support</artifactId>
+    <name>Filtro MyBatis-Plus Support</name>
+    <description>将 Filtro 查询意图转换为 MyBatis-Plus QueryWrapper</description>
 
     <properties>
         <maven.compiler.source>${java.version}</maven.compiler.source>

@@ -6,10 +6,12 @@
     <parent>
         <groupId>cc.ddrpa.filtro</groupId>
         <artifactId>filtro-parent</artifactId>
-        <version>0.0.2-SNAPSHOT</version>
+        <version>0.0.2</version>
     </parent>
 
     <artifactId>filtro-jpa-mongo-support</artifactId>
+    <name>Filtro MongoDB Support</name>
+    <description>将 Filtro 查询意图转换为 Spring Data MongoDB Criteria</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

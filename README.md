@@ -26,7 +26,7 @@
 <dependency>
     <groupId>cc.ddrpa.filtro</groupId>
     <artifactId>filtro-spring-boot-starter</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.0.2</version>
 </dependency>
 ```
 
@@ -37,28 +37,28 @@
 <dependency>
     <groupId>cc.ddrpa.filtro</groupId>
     <artifactId>filtro-mp-query-wrapper-support</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.0.2</version>
 </dependency>
 
 <!-- Spring Data MongoDB -->
 <dependency>
     <groupId>cc.ddrpa.filtro</groupId>
     <artifactId>filtro-jpa-mongo-support</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.0.2</version>
 </dependency>
 
 <!-- Meilisearch filter 表达式 -->
 <dependency>
     <groupId>cc.ddrpa.filtro</groupId>
     <artifactId>filtro-meilisearch-support</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.0.2</version>
 </dependency>
 
 <!-- Springdoc / OpenAPI（可选：文档化元数据端点与 q 参数） -->
 <dependency>
     <groupId>cc.ddrpa.filtro</groupId>
     <artifactId>filtro-springdoc-support</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.0.2</version>
 </dependency>
 ```
 

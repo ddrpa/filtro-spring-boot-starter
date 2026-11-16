@@ -6,10 +6,12 @@
     <parent>
         <groupId>cc.ddrpa.filtro</groupId>
         <artifactId>filtro-parent</artifactId>
-        <version>0.0.2-SNAPSHOT</version>
+        <version>0.0.2</version>
     </parent>
 
     <artifactId>filtro-meilisearch-support</artifactId>
+    <name>Filtro Meilisearch Support</name>
+    <description>将 Filtro 查询意图转换为 Meilisearch filter 表达式</description>
 
     <properties>
         <maven.compiler.source>${java.version}</maven.compiler.source>

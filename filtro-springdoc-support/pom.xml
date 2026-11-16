@@ -6,10 +6,12 @@
     <parent>
         <groupId>cc.ddrpa.filtro</groupId>
         <artifactId>filtro-parent</artifactId>
-        <version>0.0.2-SNAPSHOT</version>
+        <version>0.0.2</version>
     </parent>
 
     <artifactId>filtro-springdoc-support</artifactId>
+    <name>Filtro Springdoc Support</name>
+    <description>为 Filtro 元数据端点与查询参数 q 生成 OpenAPI 描述</description>
 
     <properties>
         <maven.compiler.source>${java.version}</maven.compiler.source>

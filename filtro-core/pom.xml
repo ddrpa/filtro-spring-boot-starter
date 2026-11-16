@@ -6,10 +6,12 @@
     <parent>
         <groupId>cc.ddrpa.filtro</groupId>
         <artifactId>filtro-parent</artifactId>
-        <version>0.0.2-SNAPSHOT</version>
+        <version>0.0.2</version>
     </parent>
 
     <artifactId>filtro-core</artifactId>
+    <name>Filtro Core</name>
+    <description>RSQL 查询意图、操作符与字段元数据模型</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

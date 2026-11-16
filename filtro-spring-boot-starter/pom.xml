@@ -6,10 +6,12 @@
     <parent>
         <groupId>cc.ddrpa.filtro</groupId>
         <artifactId>filtro-parent</artifactId>
-        <version>0.0.2-SNAPSHOT</version>
+        <version>0.0.2</version>
     </parent>
 
     <artifactId>filtro-spring-boot-starter</artifactId>
+    <name>Filtro Spring Boot Starter</name>
+    <description>Filtro 的 Spring Boot 自动装配与元数据端点</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
