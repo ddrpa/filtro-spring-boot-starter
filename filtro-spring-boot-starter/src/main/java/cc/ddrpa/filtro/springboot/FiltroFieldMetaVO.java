@@ -1,9 +1,15 @@
 package cc.ddrpa.filtro.springboot;
 
+import cc.ddrpa.filtro.core.dictionary.FiltroDictionarySourceResolver;
 import cc.ddrpa.filtro.core.field.FiltroFieldMeta;
 import cc.ddrpa.filtro.core.field.FiltroOperator;
-import cc.ddrpa.filtro.core.field.FiltroValueType;
+import cc.ddrpa.filtro.core.field.QueryIntent;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Map;
 import java.util.Set;
 
@@ -11,28 +17,77 @@ public class FiltroFieldMetaVO {
     // RSQL 字段名
     private String field;
 
-    // 数据类型
-    private FiltroValueType filtroValueType;
+    // 查询意图
+    private QueryIntent queryIntent;
+
+    // 前端控件类型
+    private FiltroComponent component;
 
     // 支持的操作符
     private Set<FiltroOperator> supportedOperations;
 
-    // 描述说明
-    private String description;
+    // 描述说明（展示名）
+    private String label;
+
+    // 悬停提示
+    private String tooltip;
 
     // 枚举选项
     private Map<String, String> dictionary;
 
     public static FiltroFieldMetaVO from(FiltroFieldMeta meta) {
+        return from(meta, null);
+    }
+
+    public static FiltroFieldMetaVO from(FiltroFieldMeta meta, FiltroDictionarySourceResolver resolver) {
         FiltroFieldMetaVO vo = new FiltroFieldMetaVO();
         vo.setField(meta.getField());
-        vo.setFiltroValueType(meta.getFiltroValueType());
+        vo.setQueryIntent(meta.getQueryIntent());
+        vo.setComponent(inferComponent(meta));
         vo.setSupportedOperations(meta.getSupportedOperations());
-        vo.setDescription(meta.getDescription());
-        if (meta.isEnumeration()) {
+        vo.setLabel(meta.getLabel());
+        vo.setTooltip(meta.getTooltip());
+        if (meta.getDictionarySourceClass() != null) {
+            if (resolver == null) {
+                throw new IllegalStateException(
+                        "Field '" + meta.getField() + "' declares dictionary source "
+                                + meta.getDictionarySourceClass().getName()
+                                + " but no FiltroDictionarySourceResolver is available");
+            }
+            vo.setDictionary(resolver.resolve(meta.getDictionarySourceClass()));
+        } else if (meta.getEnumerationDictionary() != null && !meta.getEnumerationDictionary().isEmpty()) {
             vo.setDictionary(meta.getEnumerationDictionary());
         }
         return vo;
+    }
+
+    static FiltroComponent inferComponent(FiltroFieldMeta meta) {
+        if (meta.hasDictionary()) {
+            return FiltroComponent.SELECT;
+        }
+        Class<?> type = meta.getJavaType();
+        if (type == null) {
+            return FiltroComponent.TEXT;
+        }
+        if (Boolean.class.equals(type) || boolean.class.equals(type)) {
+            return FiltroComponent.CHECKBOX;
+        }
+        if (LocalDate.class.equals(type)) {
+            return FiltroComponent.DATE;
+        }
+        if (LocalDateTime.class.equals(type) || Instant.class.equals(type) || LocalTime.class.equals(type)) {
+            return FiltroComponent.DATETIME;
+        }
+        if (Integer.class.equals(type) || int.class.equals(type)
+                || Long.class.equals(type) || long.class.equals(type)
+                || Short.class.equals(type) || short.class.equals(type)
+                || Float.class.equals(type) || float.class.equals(type)
+                || Double.class.equals(type) || double.class.equals(type)
+                || BigDecimal.class.equals(type)
+                || "org.bson.types.Decimal128".equals(type.getName())) {
+            return FiltroComponent.NUMBER;
+        }
+        return FiltroComponent.TEXT;
     }
 
     public String getField() {
@@ -44,12 +99,21 @@ public class FiltroFieldMetaVO {
         return this;
     }
 
-    public FiltroValueType getFiltroValueType() {
-        return filtroValueType;
+    public QueryIntent getQueryIntent() {
+        return queryIntent;
     }
 
-    public FiltroFieldMetaVO setFiltroValueType(FiltroValueType filtroValueType) {
-        this.filtroValueType = filtroValueType;
+    public FiltroFieldMetaVO setQueryIntent(QueryIntent queryIntent) {
+        this.queryIntent = queryIntent;
+        return this;
+    }
+
+    public FiltroComponent getComponent() {
+        return component;
+    }
+
+    public FiltroFieldMetaVO setComponent(FiltroComponent component) {
+        this.component = component;
         return this;
     }
 
@@ -62,12 +126,21 @@ public class FiltroFieldMetaVO {
         return this;
     }
 
-    public String getDescription() {
-        return description;
+    public String getLabel() {
+        return label;
     }
 
-    public FiltroFieldMetaVO setDescription(String description) {
-        this.description = description;
+    public FiltroFieldMetaVO setLabel(String label) {
+        this.label = label;
+        return this;
+    }
+
+    public String getTooltip() {
+        return tooltip;
+    }
+
+    public FiltroFieldMetaVO setTooltip(String tooltip) {
+        this.tooltip = tooltip;
         return this;
     }
 

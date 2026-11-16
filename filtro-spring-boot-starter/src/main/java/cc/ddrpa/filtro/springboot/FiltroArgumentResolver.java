@@ -1,7 +1,7 @@
 package cc.ddrpa.filtro.springboot;
 
 import cc.ddrpa.filtro.core.FiltroRegistry;
-import cc.ddrpa.filtro.core.annotation.Filtro;
+import cc.ddrpa.filtro.core.annotation.FiltroQuery;
 import cc.ddrpa.filtro.core.field.FiltroFieldMeta;
 import cc.ddrpa.filtro.core.field.FiltroOperator;
 import cc.ddrpa.filtro.core.rsql.RsqlNodeHandler;
@@ -9,6 +9,8 @@ import cz.jirutka.rsql.parser.RSQLParser;
 import cz.jirutka.rsql.parser.ast.ComparisonOperator;
 import cz.jirutka.rsql.parser.ast.Node;
 import cz.jirutka.rsql.parser.ast.RSQLOperators;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.MethodParameter;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.support.WebDataBinderFactory;
@@ -17,9 +19,11 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
+    private static final Logger logger = LoggerFactory.getLogger(FiltroArgumentResolver.class);
 
     private final RSQLParser rsqlParser;
     private final FiltroRegistry filtroRegistry;
@@ -27,8 +31,10 @@ public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
 
     public FiltroArgumentResolver(FiltroRegistry filtroRegistry, List<RsqlNodeHandler<?>> factories) {
         Set<ComparisonOperator> comparisonOperatorSet = new HashSet<>(RSQLOperators.defaultOperators());
+        Pattern symbolPattern = Pattern.compile("=[a-zA-Z]*=|[><]=?|!=");
         Stream.of(FiltroOperator.values())
                 .filter(op -> !op.isRsqlOriginal())
+                .filter(op -> symbolPattern.matcher(op.getSymbol()).matches())
                 .map(op -> new ComparisonOperator(op.getSymbol(), op.isMultiValue()))
                 .forEach(comparisonOperatorSet::add);
         this.rsqlParser = new RSQLParser(comparisonOperatorSet);
@@ -38,7 +44,7 @@ public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
-        return parameter.hasParameterAnnotation(Filtro.class);
+        return parameter.hasParameterAnnotation(FiltroQuery.class);
     }
 
     @Override
@@ -46,13 +52,19 @@ public class FiltroArgumentResolver implements HandlerMethodArgumentResolver {
                                   NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         String query = webRequest.getParameter("q");
         if (!StringUtils.hasText(query)) {
-            // NEED_CHECK 返回 null 合适还是根据类型返回空对象合适？
+            if (logger.isDebugEnabled()) {
+                logger.debug("Empty 'q' parameter for FiltroQuery method parameter '{}', returning null",
+                        parameter.getParameterName());
+            }
             return null;
         }
         Node queryRootNode = rsqlParser.parse(query);
-        Filtro filtroAnno = parameter.getParameterAnnotation(Filtro.class);
-        Class<?> entityType = filtroAnno.value();
-        Class<?> entityGroup = filtroAnno.group();
+        if (logger.isDebugEnabled()) {
+            logger.debug("RSQL parsed: {}", queryRootNode);
+        }
+        FiltroQuery filtroQueryAnno = parameter.getParameterAnnotation(FiltroQuery.class);
+        Class<?> entityType = filtroQueryAnno.value();
+        Class<?> entityGroup = filtroQueryAnno.group();
         Map<String, FiltroFieldMeta> fieldMetaMap = filtroRegistry.getAsMap(entityType, entityGroup);
 
         Class<?> parameterType = parameter.getParameterType();

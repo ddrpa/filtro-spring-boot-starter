@@ -5,6 +5,24 @@
       "type": "java.lang.String[]",
       "description": "Controller 类扫描路径，支持包名数组",
       "defaultValue": []
+    },
+    {
+      "name": "filtro.max-depth",
+      "type": "java.lang.Integer",
+      "description": "RSQL 表达式最大嵌套深度",
+      "defaultValue": 20
+    },
+    {
+      "name": "filtro.enable-metadata-endpoint",
+      "type": "java.lang.Boolean",
+      "description": "是否自动注册元数据查询端点",
+      "defaultValue": true
+    },
+    {
+      "name": "filtro.metadata-endpoint-suffix",
+      "type": "java.lang.String",
+      "description": "元数据端点路径后缀",
+      "defaultValue": ":filtro"
     }
   ]
 }

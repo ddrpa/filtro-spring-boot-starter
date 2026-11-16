@@ -20,14 +20,14 @@ public enum FiltroOperator {
     IN(true, "=in=", true),
     NOT_IN(true, "=out=", true),
 
-    /* 自定义扩展的操作符 */
+    /* 空值相关（复杂查询需要；动态表单可忽略） */
     IS_NULL(false, "=null=", false),
     NOT_NULL(false, "=nonull=", false),
+    NULLABLE_NEQ(false, "=nullableneq=", false),
 
     // 专门用于字符串的模糊匹配
-    PREFIX(false, "=prefix=", false),
-    SUFFIX(false, "=suffix=", false),
-    CONTAINS(false, "=contains=", false);
+    CONTAINS(false, "=contains=", false),
+    NOT_CONTAINS(false, "=nocontains=", false);
 
     private final boolean rsqlOriginal;
     private final String symbol;
@@ -37,6 +37,13 @@ public enum FiltroOperator {
         this.rsqlOriginal = rsqlOriginal;
         this.symbol = symbol;
         this.multiValue = multiValue;
+    }
+
+    public static FiltroOperator of(String symbol) {
+        return Stream.of(FiltroOperator.values())
+                .filter(op -> op.symbol.equalsIgnoreCase(symbol))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown RSQL operator: " + symbol));
     }
 
     public boolean isRsqlOriginal() {
@@ -49,12 +56,5 @@ public enum FiltroOperator {
 
     public boolean isMultiValue() {
         return multiValue;
-    }
-
-    public static FiltroOperator of(String symbol) {
-        return Stream.of(FiltroOperator.values())
-                .filter(op -> op.symbol.equalsIgnoreCase(symbol))
-                .findFirst()
-                .orElseThrow(IllegalArgumentException::new);
     }
 }
